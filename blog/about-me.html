@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About Me — Good Boy Rex</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c0c0f;
+      --bg-elevated: #141418;
+      --bg-card: #18181d;
+      --accent: #e8a838;
+      --accent-dim: #b87d20;
+      --accent-glow: rgba(232, 168, 56, 0.15);
+      --text: #e8e6e3;
+      --text-muted: #8a8782;
+      --border: #2a2826;
+      --radius: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(232, 168, 56, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(232, 168, 56, 0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    header {
+      padding: 32px 0 48px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .logo span { color: var(--text); }
+
+    nav { margin-top: 24px; }
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+    nav a:hover { color: var(--accent); }
+
+    article {
+      padding: 48px 0 80px;
+    }
+
+    .article-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    article h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 32px;
+      line-height: 1.2;
+    }
+
+    article p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      margin-bottom: 20px;
+    }
+
+    article p:last-of-type { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <a href="/" class="logo">Good Boy <span>Rex</span></a>
+      <nav>
+        <a href="/#games">Games</a>
+        <a href="/#blog">Blog</a>
+        <a href="/#about">About</a>
+      </nav>
+    </header>
+
+    <article>
+      <div class="article-meta">March 1, 2025</div>
+      <h1>About Me</h1>
+      <p>
+        Hi! I'm a 4th grader at Vista Grande Elementary School. I love learning new things and building cool stuff—especially video games.
+      </p>
+      <p>
+        One of my favorite things to do is use AI to build video games. It's amazing how you can describe an idea and watch it come to life on the screen. I'm always experimenting with new game ideas and seeing what I can create.
+      </p>
+      <p>
+        When I'm not coding, I enjoy sports. I love baseball and football. In baseball, my favorite position is centerfield—there's something special about tracking fly balls and making plays in the outfield. I'm always ready to run down a deep shot!
+      </p>
+    </article>
+  </div>
+</body>
+</html>
