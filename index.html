@@ -1,3027 +1,382 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BARK OPS: Operation Whisker DOWN</title>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{background:#050a08;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:'Press Start 2P',monospace;}
-#gameCanvas{display:block;image-rendering:pixelated;cursor:none;border-radius:6px;box-shadow:0 0 32px rgba(40,220,80,0.18),0 0 80px rgba(20,160,50,0.10),0 0 4px rgba(80,255,100,0.25);filter:brightness(1.06) saturate(1.18) contrast(1.07);}
-#codePanel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#0a0f0a;border:3px solid #3a7a3a;padding:30px;text-align:center;display:none;pointer-events:all;min-width:340px;}
-#codePanel input{background:#050a05;color:#3a7a3a;border:2px solid #3a7a3a;font-family:'Press Start 2P',monospace;font-size:20px;width:180px;text-align:center;padding:10px;margin:15px 0;letter-spacing:4px;}
-#codePanel button{background:#2e5e2e;color:#c8b89a;border:2px solid #3a7a3a;font-family:'Press Start 2P',monospace;font-size:12px;padding:10px 20px;cursor:pointer;margin-top:10px;}
-#codePanel button:hover{background:#3d7a3d;}
-#codePanel h2{color:#f0c040;font-size:14px;margin-bottom:10px;}
-#codePanel p{color:#6b9e6b;font-size:9px;margin-bottom:8px;line-height:1.6;}
-#codeMsg{color:#c0392b;margin-top:10px;font-size:9px;}
-#scrambleDisplay{color:#3a7a3a;font-size:14px;margin:10px 0;letter-spacing:3px;min-height:24px;}
-#timerDisplay{color:#c0392b;font-size:18px;margin:8px 0;}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Good Boy Rex — Game Dev & Blog</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c0c0f;
+      --bg-elevated: #141418;
+      --bg-card: #18181d;
+      --accent: #e8a838;
+      --accent-dim: #b87d20;
+      --accent-glow: rgba(232, 168, 56, 0.15);
+      --text: #e8e6e3;
+      --text-muted: #8a8782;
+      --border: #2a2826;
+      --success: #4a9a5a;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Subtle grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(232, 168, 56, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(232, 168, 56, 0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    header {
+      padding: 32px 0 48px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--accent);
+    }
+
+    .logo span {
+      color: var(--text);
+    }
+
+    nav {
+      display: flex;
+      gap: 32px;
+      margin-top: 24px;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    nav a:hover {
+      color: var(--accent);
+    }
+
+    /* Hero */
+    .hero {
+      padding: 80px 0 100px;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, var(--text) 0%, var(--text-muted) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero h1 .accent {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin: 0 auto 40px;
+    }
+
+    /* Games Section */
+    section {
+      padding: 64px 0;
+    }
+
+    .section-header {
+      margin-bottom: 40px;
+    }
+
+    .section-header h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    .section-header p {
+      color: var(--text-muted);
+      margin-top: 8px;
+      font-size: 1rem;
+    }
+
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 28px;
+    }
+
+    .game-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .game-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--accent-glow);
+      border-color: rgba(232, 168, 56, 0.3);
+    }
+
+    .game-card-thumb {
+      aspect-ratio: 16/9;
+      background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .game-card-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .game-card-thumb .placeholder {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      opacity: 0.6;
+    }
+
+    .game-card-body {
+      padding: 24px;
+    }
+
+    .game-card h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .game-card .meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .game-card p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .game-card .play-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .game-card .play-badge::after {
+      content: '→';
+    }
+
+    /* Blog Section */
+    .blog-preview {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 48px;
+      margin-top: 24px;
+    }
+
+    .blog-preview h3 {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-bottom: 16px;
+    }
+
+    .blog-preview p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .blog-preview a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      margin-top: 12px;
+      display: inline-block;
+    }
+
+    .blog-preview a:hover {
+      text-decoration: underline;
+    }
+
+    /* Footer */
+    footer {
+      padding: 48px 0 32px;
+      margin-top: 64px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .hero {
+        padding: 48px 0 64px;
+      }
+
+      .games-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
-<canvas id="gameCanvas"></canvas>
-<div id="codePanel">
-  <h2>ACCESS TERMINAL</h2>
-  <div id="timerDisplay">T-60</div>
-  <p>DECODE THE SCRAMBLED SEQUENCE</p>
-  <div id="scrambleDisplay">------</div>
-  <p id="decodeHint"></p>
-  <input type="text" id="codeField" maxlength="6" placeholder="______" autocomplete="off">
-  <br>
-  <button onclick="submitCode()">CONFIRM</button>
-  <p id="codeMsg"></p>
-</div>
-<script>
-'use strict';
-// ============================================================
-// BARK OPS: Operation Whisker DOWN
-// 32-bit era canvas game - SNES/Genesis style - single file
-// ============================================================
-
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-
-// --- EXPANDED 32-BIT PALETTE ---
-const P = {
-  bgDark:   '#0d0d1a', bgMid:   '#121830', bgDeep:  '#0a2448',
-  bgLight:  '#1a2a4e', bgSky:   '#223366',
-  tan:      '#d4b87a', tanLight:'#e8d4a0', tanDark: '#9a7428', tanDeep: '#6a4418',
-  tanShadow:'#4a2a0a',
-  milGreen: '#4a6a3a', milMid:  '#6a8a4a', milLight:'#8aaa5a', milBright:'#a0c060',
-  milDark:  '#2a4a1a', milShadow:'#1a3010',
-  red:      '#d04030', redLight:'#e06050', redDark: '#a02820', redDeep: '#801818',
-  redBright:'#f06848', redShadow:'#600808',
-  blue:     '#3090cc', blueLight:'#50b0e8', blueDark:'#1a6a9a', blueDeep:'#104a6a',
-  blueBright:'#60c8f0', blueShadow:'#082838',
-  orange:   '#e88830', orangeLight:'#f0a848', orangeDk:'#cc7018', orangeDp:'#a05800',
-  orangeBright:'#f8c060',
-  yellow:   '#f0cc48', yelLight:'#f8e070', yelDark: '#d4a820', yelDeep: '#b8860b',
-  yelBright:'#f8f080', yelShadow:'#8a6000',
-  gray:     '#8898a0', grayLight:'#a8b8c0', grayDark:'#586878', grayDeep:'#384858',
-  grayShadow:'#202830',
-  cream:    '#f4f0e0', creamLight:'#faf8f0', creamDk: '#e0d8c0', creamDp: '#c8b89a',
-  creamShadow:'#a89878',
-  purple:   '#7a3898', purpLight:'#9a58b8', purpDark:'#582868', purpDeep:'#401848',
-  purpBright:'#b070d0', purpShadow:'#280a30',
-  hudGreen: '#40a040', hudBright:'#60cc60', hudDark: '#2e6e2e', hudShadow:'#184818',
-  white:    '#f8f8f0', black:   '#080810', trueBlack:'#000000',
-  lava:     '#e84818', lavaGlow:'#f07030', lavaBright:'#f89848', lavaDark:'#b03010',
-  metal:    '#90a0b8', metalLight:'#b0c0d0', metalDk: '#607080', metalDeep:'#405060',
-  metalBright:'#c8d8e0',
-  steelBlue:'#5080a0', steelLight:'#6898b8',
-  skin:     '#e8c090', skinLight:'#f0d8b0', skinDark:'#c89868', skinShadow:'#a07848',
-  green:    '#40a040', greenLight:'#60c060', greenDark:'#208020',
-  pink:     '#e878a0', pinkLight:'#f098b8', pinkDark:'#c05878',
-  brown:    '#8a6030', brownLight:'#a88048', brownDark:'#604018',
-  gold:     '#f0c830', goldLight:'#f8e060', goldDark:'#c8a010',
-  teal:     '#30a0a0', tealLight:'#50c0c0', tealDark:'#188080'
-};
-
-// --- CANVAS SETUP ---
-const BASE_W = 800, BASE_H = 450;
-let SCALE = 1;
-function resizeCanvas(){
-  const aspect = BASE_W/BASE_H;
-  let w = window.innerWidth, h = window.innerHeight;
-  if(w/h > aspect){ w = Math.floor(h*aspect); } else { h = Math.floor(w/aspect); }
-  canvas.width = w; canvas.height = h;
-  SCALE = w/BASE_W;
-}
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
-
-// Scale helpers
-function S(v){ return v*SCALE; }
-function SR(x,y,w,h,color){
-  ctx.fillStyle = color;
-  ctx.fillRect(S(x),S(y),S(w),S(h));
-}
-function SRC(x,y,w,h,color){
-  ctx.strokeStyle = color;
-  ctx.strokeRect(S(x)+0.5,S(y)+0.5,S(w),S(h));
-}
-// 32-bit gradient fill helper
-function SRG(x,y,w,h,c1,c2,vertical){
-  const grd = vertical!==false
-    ? ctx.createLinearGradient(S(x),S(y),S(x),S(y+h))
-    : ctx.createLinearGradient(S(x),S(y),S(x+w),S(y));
-  grd.addColorStop(0,c1); grd.addColorStop(1,c2);
-  ctx.fillStyle = grd;
-  ctx.fillRect(S(x),S(y),S(w),S(h));
-}
-// Rounded rect helper
-function SRR(x,y,w,h,r,color){
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  const sx=S(x),sy=S(y),sw=S(w),sh=S(h),sr=S(r);
-  ctx.moveTo(sx+sr,sy); ctx.lineTo(sx+sw-sr,sy); ctx.quadraticCurveTo(sx+sw,sy,sx+sw,sy+sr);
-  ctx.lineTo(sx+sw,sy+sh-sr); ctx.quadraticCurveTo(sx+sw,sy+sh,sx+sw-sr,sy+sh);
-  ctx.lineTo(sx+sr,sy+sh); ctx.quadraticCurveTo(sx,sy+sh,sx,sy+sh-sr);
-  ctx.lineTo(sx,sy+sr); ctx.quadraticCurveTo(sx,sy,sx+sr,sy);
-  ctx.closePath(); ctx.fill();
-}
-// Circle helper
-function SC(x,y,r,color){
-  ctx.fillStyle = color;
-  ctx.beginPath(); ctx.arc(S(x),S(y),S(r),0,Math.PI*2); ctx.fill();
-}
-// Color interpolation for smooth gradients
-function lerpColor(a,b,t){
-  const ah=parseInt(a.slice(1),16),bh=parseInt(b.slice(1),16);
-  const ar=(ah>>16)&255,ag=(ah>>8)&255,ab=ah&255;
-  const br=(bh>>16)&255,bg=(bh>>8)&255,bb=bh&255;
-  const r=Math.round(ar+(br-ar)*t),g=Math.round(ag+(bg-ag)*t),bl=Math.round(ab+(bb-ab)*t);
-  return `rgb(${r},${g},${bl})`;
-}
-// Text with drop shadow
-function drawText(text,x,y,color,size){
-  ctx.font=`${S(size||8)}px 'Press Start 2P', monospace`;
-  ctx.fillStyle='rgba(0,0,0,0.5)';
-  ctx.fillText(text,S(x)+S(1),S(y)+S(1));
-  ctx.fillStyle=color;
-  ctx.fillText(text,S(x),S(y));
-}
-
-// --- GAME STATE ---
-let gameState = 'menu'; // menu, prologue, levelIntro, playing, levelComplete, boss, bossIntro, bossDefeat, codeScreen, gameOver, victory
-let score = 0, lives = 3, level = 1, frame = 0;
-let shakeX = 0, shakeY = 0, shakeDur = 0;
-let menuFrame = 0, menuBlink = 0;
-let levelBannerTimer = 0;
-let comboCount = 0, comboTimer = 0;
-let levelCompleteTimer = 0, levelCompleteData = {};
-let ambientTimer = 0;
-let lowHPPulse = 0;
-let bossEntrance = false, bossEntranceTimer = 0;
-let controlsHintTimer = 0;
-let introTimer = 0, introTextIndex = 0, introCharIndex = 0, introTickTimer = 0;
-// Prologue state
-let prologueIndex = 0, prologueCharIndex = 0, prologueTickTimer = 0, prologueTimer = 0;
-let hasSeenPrologue = false;
-// Radio comm state
-let radioComm = null; // {speaker, text, timer, fade}
-let radioTriggered = {}; // tracks which triggers fired this level
-let levelKillCount = 0;
-// Boss dialogue state
-let bossDialogueLines = [];
-let bossDialogueIndex = 0;
-let bossDialogueCharIndex = 0;
-let bossDialogueTickTimer = 0;
-let bossDialogueTimer = 0;
-let bossPhaseTaunted = {}; // tracks which phase taunts fired
-// Debrief typewriter state
-let debriefIndex = 0, debriefCharIndex = 0, debriefTickTimer = 0;
-// Game over message
-let gameOverMsg = null;
-// Victory epilogue
-let victoryPhase = 0, victoryTimer = 0;
-
-// ============================================================
-// STORY / MISSION BRIEFINGS
-// ============================================================
-const LEVEL_INTROS = [
-  { // Level 1
-    title: 'MISSION 1: PERIMETER BREACH',
-    lines: [
-      {s:'HQ',  t:'REX, WE HAVE A SITUATION.'},
-      {s:'HQ',  t:'CATS HAVE SEIZED THE WATERFRONT.'},
-      {s:'REX', t:'HOW MANY HOSTILES?'},
-      {s:'HQ',  t:'DOZENS. ARMED PATROLS EVERYWHERE.'},
-      {s:'HQ',  t:'THIS IS NO ORDINARY CATNIP RING.'},
-      {s:'REX', t:'JUST POINT ME AT EM, COMMANDER.'},
-      {s:'HQ',  t:'STAY SHARP. SOMETHING BIGGER IS'},
-      {s:'HQ',  t:'GOING ON HERE...'},
-      {s:'HQ',  t:'OBJECTIVE: CLEAR ALL HOSTILES'}
-    ]
-  },
-  { // Level 2
-    title: 'MISSION 2: CAT LAB ALPHA',
-    lines: [
-      {s:'HQ',  t:'NICE WORK ON THE DOCKS, REX.'},
-      {s:'REX', t:'THOSE CATS WERE TOO ORGANIZED.'},
-      {s:'REX', t:'SOMEONE IS PULLING STRINGS.'},
-      {s:'HQ',  t:'AGREED. WE TRACED THEIR COMMS'},
-      {s:'HQ',  t:'TO AN UNDERGROUND RESEARCH LAB.'},
-      {s:'HQ',  t:'EXPECT LASER CATS AND COMMANDOS.'},
-      {s:'REX', t:'LASER CATS? SERIOUSLY?'},
-      {s:'HQ',  t:'SERIOUSLY. WATCH YOUR TAIL.'},
-      {s:'HQ',  t:'OBJECTIVE: INFILTRATE THE LAB'},
-      {s:'HQ',  t:'DECODE THE ACCESS TERMINAL'}
-    ]
-  },
-  { // Level 3
-    title: 'MISSION 3: ENEMY TERRITORY',
-    lines: [
-      {s:'HQ',  t:'THE LAB DATA IS ALARMING.'},
-      {s:'HQ',  t:'THEY HAVE A FORWARD OPERATING'},
-      {s:'HQ',  t:'BASE IN SECTOR 7.'},
-      {s:'REX', t:'WHO IS RUNNING IT?'},
-      {s:'HQ',  t:'COLONEL CLAW. EX-MILITARY.'},
-      {s:'HQ',  t:'MECHANICAL ARM. VERY DANGEROUS.'},
-      {s:'REX', t:'I EAT DANGER FOR BREAKFAST.'},
-      {s:'HQ',  t:'...JUST DODGE HIS CHARGE ATTACK.'},
-      {s:'HQ',  t:'OBJECTIVE: DEFEAT COL. CLAW'}
-    ]
-  },
-  { // Level 4
-    title: 'MISSION 4: THE FORTRESS',
-    lines: [
-      {s:'REX', t:'CLAW TALKED BEFORE HE FELL.'},
-      {s:'REX', t:'DR. WHISKERS IS BUILDING'},
-      {s:'REX', t:'A MIND-CONTROL SATELLITE.'},
-      {s:'HQ',  t:'...THAT MANIAC.'},
-      {s:'HQ',  t:'HIS FORTRESS IS HEAVILY GUARDED'},
-      {s:'HQ',  t:'BY ELITE UNITS. SNIPERS, ARMOR.'},
-      {s:'REX', t:'THEN WE HIT IT HARD AND FAST.'},
-      {s:'HQ',  t:'GET IN. HACK THEIR TERMINAL.'},
-      {s:'HQ',  t:'OBJECTIVE: BREACH THE FORTRESS'}
-    ]
-  },
-  { // Level 5
-    title: 'MISSION 5: FINAL SHOWDOWN',
-    lines: [
-      {s:'HQ',  t:'THIS IS IT, REX.'},
-      {s:'HQ',  t:'DR. WHISKERS IS AT THE LAUNCH'},
-      {s:'HQ',  t:'PAD IN HIS MECH SUIT.'},
-      {s:'REX', t:'HOW LONG UNTIL LAUNCH?'},
-      {s:'HQ',  t:'MINUTES. MAYBE LESS.'},
-      {s:'HQ',  t:'IF THAT SATELLITE GOES UP...'},
-      {s:'REX', t:'IT WONT. I PROMISE.'},
-      {s:'HQ',  t:'GIVE EM HELL, SOLDIER.'},
-      {s:'HQ',  t:'OBJECTIVE: DEFEAT DR. WHISKERS'},
-      {s:'HQ',  t:'SAVE THE WORLD. GOOD BOY.'}
-    ]
-  }
-];
-
-// --- LEVEL DEBRIEFS (speaker-tagged) ---
-const LEVEL_DEBRIEFS = [
-  [ // Level 1
-    {s:'HQ',  t:'DOCKS SECURED. GOOD WORK, REX.'},
-    {s:'REX', t:'THESE CATS WERE ORGANIZED.'},
-    {s:'REX', t:'FOUND COORDINATES ON THEIR GEAR.'},
-    {s:'HQ',  t:'A SECRET LAB... INVESTIGATE IT.'}
-  ],
-  [ // Level 2
-    {s:'HQ',  t:'LAB IS OURS. DATA DOWNLOADED.'},
-    {s:'REX', t:'YOU WONT BELIEVE WHAT THEY HAD.'},
-    {s:'REX', t:'WEAPONS, CLONING VATS, THE WORKS.'},
-    {s:'HQ',  t:'IT POINTS TO A FORWARD BASE...'}
-  ],
-  [ // Level 3
-    {s:'REX', t:'COLONEL CLAW IS DOWN.'},
-    {s:'HQ',  t:'WHAT DID HE SAY?'},
-    {s:'REX', t:'DR. WHISKERS HAS A FORTRESS.'},
-    {s:'REX', t:'AND A MIND-CONTROL SATELLITE.'},
-    {s:'HQ',  t:'WE NEED TO MOVE. NOW.'}
-  ],
-  [ // Level 4
-    {s:'HQ',  t:'FORTRESS BREACHED! TERMINAL HACKED.'},
-    {s:'REX', t:'I HAVE THE LAUNCH COORDINATES.'},
-    {s:'HQ',  t:'DR. WHISKERS FLED TO HIS VOLCANO.'},
-    {s:'REX', t:'THEN THATS WHERE IM GOING.'},
-    {s:'HQ',  t:'GODSPEED, REX.'}
-  ],
-  [ // Level 5
-    {s:'REX', t:'ITS OVER. DR. WHISKERS IS DONE.'},
-    {s:'HQ',  t:'THE SATELLITE IS DESTROYED?'},
-    {s:'REX', t:'BLOWN TO PIECES, COMMANDER.'},
-    {s:'HQ',  t:'THE WORLD IS SAFE. GOOD BOY, REX.'},
-    {s:'REX', t:'JUST DOING MY JOB. *WAGS TAIL*'}
-  ]
-];
-
-// --- BOSS DIALOGUE ---
-const BOSS_DIALOGUE = {
-  colonelClaw: {
-    entrance: [
-      {s:'CLAW', t:'SO... THE FAMOUS SGT. REX.'},
-      {s:'CLAW', t:'YOUR REPUTATION PRECEDES YOU.'},
-      {s:'REX',  t:'SURRENDER, CLAW. ITS OVER.'},
-      {s:'CLAW', t:'OVER? IT HASNT EVEN BEGUN!'}
-    ],
-    phaseTaunts: [
-      {s:'CLAW', t:'NOT BAD... FOR A DOG!'},
-      {s:'CLAW', t:'YOULL REGRET THAT, MUTT!'}
-    ],
-    defeat: [
-      {s:'CLAW', t:'IMPOSSIBLE... MY CLAW...'},
-      {s:'REX',  t:'TELL ME ABOUT DR. WHISKERS.'},
-      {s:'CLAW', t:'THE FORTRESS... SECTOR 9...'},
-      {s:'CLAW', t:'YOURE TOO LATE... THE SATELLITE...'}
-    ]
-  },
-  drWhiskers: {
-    entrance: [
-      {s:'WHSK', t:'AH, SGT. REX. HOW PREDICTABLE.'},
-      {s:'REX',  t:'STEP AWAY FROM THE CONSOLE.'},
-      {s:'WHSK', t:'DO YOU KNOW WHAT THIS SATELLITE'},
-      {s:'WHSK', t:'WILL DO? EVERY DOG ON EARTH...'},
-      {s:'WHSK', t:'WILL OBEY CATS. FOREVER.'},
-      {s:'REX',  t:'NOT ON MY WATCH, WHISKERS.'}
-    ],
-    phaseTaunts: [
-      {s:'WHSK', t:'MY MECH SUIT HAS MANY TRICKS!'},
-      {s:'WHSK', t:'WHY WONT YOU JUST ROLL OVER?!'}
-    ],
-    defeat: [
-      {s:'WHSK', t:'NO! MY BEAUTIFUL SATELLITE!'},
-      {s:'REX',  t:'ITS OVER, WHISKERS.'},
-      {s:'WHSK', t:'THIS ISNT THE LAST YOUVE SEEN'},
-      {s:'WHSK', t:'OF MEEEEE...'},
-      {s:'REX',  t:'...GOOD BOY WINS AGAIN.'}
-    ]
-  }
-};
-
-// --- RADIO COMMS (in-gameplay messages) ---
-const RADIO_COMMS = [
-  [ // Level 1
-    {trigger:'start', s:'HQ', t:'ENTERING THE DOCKS. STAY ALERT.', dur:180},
-    {trigger:'kills:5', s:'HQ', t:'KEEP IT UP, REX!', dur:120},
-    {trigger:'kills:10', s:'REX', t:'THEY JUST KEEP COMING...', dur:120}
-  ],
-  [ // Level 2
-    {trigger:'start', s:'HQ', t:'YOURE IN THE LAB. WATCH FOR LASERS.', dur:180},
-    {trigger:'kills:5', s:'REX', t:'LASER CATS. NOW I HAVE SEEN IT ALL.', dur:150},
-    {trigger:'kills:10', s:'HQ', t:'ALMOST THERE. FIND THE TERMINAL.', dur:120}
-  ],
-  [ // Level 3
-    {trigger:'start', s:'HQ', t:'ENEMY TERRITORY. STAY FROSTY.', dur:180},
-    {trigger:'kills:5', s:'REX', t:'HEAVY RESISTANCE. AS EXPECTED.', dur:120},
-    {trigger:'preBoss', s:'HQ', t:'COLONEL CLAW IS NEAR. BE READY.', dur:180}
-  ],
-  [ // Level 4
-    {trigger:'start', s:'HQ', t:'FORTRESS DEFENSES ARE ACTIVE.', dur:180},
-    {trigger:'kills:5', s:'REX', t:'SNIPERS ON THE WALLS. FUN.', dur:120},
-    {trigger:'kills:10', s:'HQ', t:'FIND THAT TERMINAL, REX!', dur:120}
-  ],
-  [ // Level 5
-    {trigger:'start', s:'HQ', t:'THE LAUNCH PAD. NO TURNING BACK.', dur:180},
-    {trigger:'kills:5', s:'REX', t:'IM COMING FOR YOU, WHISKERS.', dur:150},
-    {trigger:'preBoss', s:'HQ', t:'DR. WHISKERS INCOMING! GOOD LUCK!', dur:180}
-  ]
-];
-
-// --- OPENING PROLOGUE ---
-const PROLOGUE_LINES = [
-  'THE YEAR IS 2049.',
-  '',
-  'AN UNEASY PEACE BETWEEN DOGS',
-  'AND CATS HAS HELD FOR DECADES.',
-  '',
-  'BUT IN THE SHADOWS, A FELINE',
-  'MASTERMIND NAMED DR. WHISKERS',
-  'HAS BEEN BUILDING AN ARMY.',
-  '',
-  'HIS PLAN: A MIND-CONTROL',
-  'SATELLITE THAT WILL ENSLAVE',
-  'EVERY DOG ON EARTH.',
-  '',
-  'ONLY ONE OPERATIVE CAN STOP HIM.',
-  '',
-  'HIS NAME IS REX.',
-  'SGT. REX.',
-  '',
-  'OPERATION WHISKER DOWN BEGINS NOW.'
-];
-
-// --- GAME OVER MESSAGES ---
-const GAME_OVER_MESSAGES = [
-  {s:'HQ', t:'WE LOST HIM... REST EASY, REX.'},
-  {s:'HQ', t:'AGENT DOWN! SEND BACKUP... TOO LATE.'},
-  {s:'HQ', t:'THE CATS WIN THIS ROUND...'},
-  {s:'HQ', t:'REX IS DOWN! MISSION FAILED.'},
-  {s:'HQ', t:'WE WONT FORGET YOUR SACRIFICE, REX.'}
-];
-
-// --- INPUT ---
-const keys = {};
-const justPressed = {};
-const justReleased = {};
-window.addEventListener('keydown', e => {
-  if(!keys[e.code]){ justPressed[e.code] = true; }
-  keys[e.code] = true;
-  if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
-});
-window.addEventListener('keyup', e => {
-  keys[e.code] = false;
-  justReleased[e.code] = true;
-});
-function clearJustPressed(){ for(let k in justPressed) delete justPressed[k]; for(let k in justReleased) delete justReleased[k]; }
-
-// --- AUDIO ---
-let audioCtx = null;
-function getAudio(){
-  if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
-  return audioCtx;
-}
-function playTone(freq, type, duration, volume, decay){
-  const ac = getAudio(); if(!ac) return;
-  try {
-    const osc = ac.createOscillator();
-    const gain = ac.createGain();
-    osc.connect(gain); gain.connect(ac.destination);
-    osc.type = type||'square';
-    osc.frequency.setValueAtTime(freq, ac.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(freq*(decay||1), ac.currentTime+duration);
-    gain.gain.setValueAtTime(volume||0.15, ac.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+duration);
-    osc.start(ac.currentTime);
-    osc.stop(ac.currentTime+duration+0.05);
-  } catch(e){}
-}
-function sfxBite(){ playTone(220,'square',0.08,0.2); playTone(180,'square',0.06,0.15,0.5); }
-function sfxHit(){ playTone(150,'sawtooth',0.1,0.2,0.3); }
-function sfxDodge(){ playTone(440,'square',0.05,0.1); playTone(550,'square',0.05,0.1); }
-function sfxDeath(){ playTone(200,'sawtooth',0.3,0.2,0.1); playTone(100,'sawtooth',0.5,0.15,0.05); }
-function sfxLevelUp(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>playTone(f,'square',0.15,0.2),i*80)); }
-function sfxCombo(){ playTone(660,'square',0.08,0.2); playTone(880,'square',0.08,0.2); }
-function sfxBossHit(){ playTone(110,'sawtooth',0.15,0.3,0.3); }
-function sfxBossDie(){ [220,175,140,110,80].forEach((f,i)=>setTimeout(()=>playTone(f,'sawtooth',0.2,0.25),i*100)); }
-function sfxMenu(){ playTone(330,'square',0.1,0.12); }
-function sfxPickup(){ playTone(880,'square',0.06,0.15); playTone(1100,'square',0.06,0.12); }
-function sfxStun(){ playTone(80,'square',0.4,0.2,0.1); }
-function sfxEmp(){ playTone(60,'sawtooth',0.5,0.25,0.05); }
-function sfxLaser(){ playTone(1200,'sine',0.2,0.15,0.2); }
-function sfxExplosion(){ playTone(100,'sawtooth',0.4,0.3,0.1); playTone(60,'square',0.6,0.2,0.05); }
-
-// --- PARTICLE SYSTEM ---
-let particles = [];
-function spawnParticles(x, y, count, colors, opts){
-  for(let i=0;i<count;i++){
-    const angle = Math.random()*Math.PI*2;
-    const speed = (opts&&opts.speed||2) * (0.5+Math.random());
-    particles.push({
-      x, y,
-      vx: Math.cos(angle)*speed*(opts&&opts.spreadX||1),
-      vy: Math.sin(angle)*speed*(opts&&opts.spreadY||1) - (opts&&opts.upBias||0),
-      life: 1, decay: 0.04+Math.random()*0.04,
-      size: (opts&&opts.size||3) * (0.5+Math.random()*0.5),
-      color: colors[Math.floor(Math.random()*colors.length)],
-      gravity: opts&&opts.gravity||0,
-      shape: opts&&opts.shape||'square'
-    });
-  }
-}
-function spawnHitParticles(x, y, color){
-  spawnParticles(x, y, 8, [color, P.cream, P.white], {speed:3, size:3});
-}
-function spawnDeathParticles(x, y, color){
-  spawnParticles(x, y, 24, [color, P.orange, P.yellow, P.cream], {speed:5, size:4, gravity:0.15, shape:'circle'});
-}
-function spawnExplosion(x, y){
-  spawnParticles(x, y, 30, [P.orange, P.lava, P.yellow, P.red], {speed:6, size:5, gravity:0.1, shape:'circle'});
-  spawnParticles(x, y, 15, [P.cream, P.creamDk], {speed:3, size:2, shape:'circle'});
-}
-function spawnSteam(x, y){
-  spawnParticles(x, y, 3, [P.creamDk, P.gray, P.grayDark], {speed:0.8, size:3, upBias:1.5, gravity:-0.05, spreadX:0.5});
-}
-function spawnLavaBubble(x, y){
-  spawnParticles(x, y, 5, [P.lava, P.lavaGlow, P.orange], {speed:2, size:3, upBias:2, gravity:0.05});
-}
-function updateParticles(){
-  for(let i=particles.length-1;i>=0;i--){
-    const p = particles[i];
-    p.x += p.vx; p.y += p.vy;
-    p.vy += p.gravity||0;
-    p.vx *= 0.95; p.vy *= 0.97;
-    p.life -= p.decay;
-    if(p.life<=0) particles.splice(i,1);
-  }
-}
-function drawParticles(){
-  for(const p of particles){
-    ctx.globalAlpha = p.life;
-    const sz = p.size*p.life;
-    if(p.shape === 'circle'){
-      SC(p.x, p.y, sz/2, p.color);
-    } else {
-      // Glow effect for fire-colored particles
-      if(p.color===P.orange||p.color===P.lava||p.color===P.yellow||p.color===P.lavaGlow){
-        ctx.globalAlpha = p.life*0.15;
-        SR(p.x-sz, p.y-sz, sz*2, sz*2, p.color);
-        ctx.globalAlpha = p.life;
-      }
-      SR(p.x-sz/2, p.y-sz/2, sz, sz, p.color);
-    }
-  }
-  ctx.globalAlpha = 1;
-}
-
-// --- DAMAGE NUMBERS ---
-let dmgNumbers = [];
-function spawnDmg(x, y, text, color){
-  dmgNumbers.push({x, y, text, color: color||P.yellow, life:1.2, vy:-0.8});
-}
-function updateDmgNumbers(){
-  for(let i=dmgNumbers.length-1;i>=0;i--){
-    dmgNumbers[i].y += dmgNumbers[i].vy;
-    dmgNumbers[i].life -= 0.025;
-    if(dmgNumbers[i].life<=0) dmgNumbers.splice(i,1);
-  }
-}
-function drawDmgNumbers(){
-  for(const d of dmgNumbers){
-    ctx.globalAlpha = Math.min(1, d.life);
-    ctx.font = `${S(8)}px 'Press Start 2P', monospace`;
-    ctx.textAlign = 'center';
-    // Drop shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillText(d.text, S(d.x)+S(1), S(d.y)+S(1));
-    ctx.fillStyle = d.color;
-    ctx.fillText(d.text, S(d.x), S(d.y));
-  }
-  ctx.globalAlpha = 1; ctx.textAlign = 'left';
-}
-
-// ============================================================
-// PIXEL ART DRAW FUNCTIONS — 16×16 PIXEL SPRITES
-// ============================================================
-
-// 16×16 sprite renderer: data=row strings, pal=char->color, ps=pixel size
-function drawSpr(ox, oy, data, pal, ps) {
-  ps = ps || 2;
-  for (let r = 0; r < data.length; r++) {
-    const row = data[r];
-    for (let c = 0; c < row.length; c++) {
-      if (row[c] === '.') continue;
-      const color = pal[row[c]];
-      if (color) SR(ox + c * ps, oy + r * ps, ps, ps, color);
-    }
-  }
-}
-// Legacy helpers (used by HUD, background, etc.)
-function T(x,y,c){ SR(x,y,8,8,c); }
-function px(x, y, color){ SR(x, y, 2, 2, color); }
-function px4(x, y, color){ SR(x, y, 4, 4, color); }
-function px8(x, y, color){ SR(x, y, 8, 8, color); }
-
-// --- DRAW REX (player dog) — 16×16 pixel sprite (32×32 px @ ps=2) ---
-const rexP = {
-  G:P.milGreen,g:P.milDark,Y:P.yellow,M:P.milMid,
-  T:P.tan,L:P.tanLight,t:P.tanDark,d:P.tanDeep,
-  s:P.skinDark,B:P.black,W:P.white,R:P.redDark,C:P.cream
-};
-const rexBody = [
-  '.....GGGg.......',
-  '....gGGGGY......',
-  '..dTTTTTTTTd....',
-  '..sTTTTTTTTs....',
-  '...TWBTTBWTt....',
-  '....TTTBTTT.....',
-  '....TTTTTTTT....',
-  '.LLTTGGGGTTLL...',
-  '..LTTGMgMTTL....',
-  '..LTTGGGGGTL....',
-  '....tGGGGt......',
-  '....tt..tt......',
-  '....tt..tt......',
-  '................',
-  '................',
-  '................'
-];
-const rexAtk = [
-  '.....GGGg.......',
-  '....gGGGGY......',
-  '..dTTTTTTTTd....',
-  '..sTTTTTTTTs....',
-  '...TWBTTBWTt....',
-  '...TTRRRRTT.....',
-  '...TTCRCRCTT....',
-  'LLLTTGGGGTTLLL..',
-  '..LTTGMgMTTL....',
-  '..LTTGGGGGTL....',
-  '....tGGGGt......',
-  '....tt..tt......',
-  '....tt..tt......',
-  '................',
-  '................',
-  '................'
-];
-function drawRex(x, y, facing, animFrame, action, dodging){
-  ctx.save();
-  if(facing<0){ctx.translate(S(x),0);ctx.scale(-1,1);ctx.translate(-S(x),0);}
-  if(dodging){ctx.translate(S(x),S(y));ctx.scale(1.3,0.6);ctx.translate(-S(x),-S(y));}
-  const ox=x-16, oy=y-32;
-  ctx.globalAlpha=0.25;SR(ox+4,oy+30,24,4,P.trueBlack);ctx.globalAlpha=1;
-  drawSpr(ox,oy,action==='attack'?rexAtk:rexBody,rexP,2);
-  const tw=Math.round(Math.sin(frame*0.15)*2)*2;
-  SR(ox+26,oy+14+tw,4,4,P.tan);SR(ox+28,oy+16+tw,2,4,P.tanDark);
-  const lo=action==='attack'?0:[0,2,0,-2][animFrame%4];
-  if(lo!==0){SR(ox+8,oy+24+lo,4,4,P.tanDark);SR(ox+16,oy+24-lo,4,4,P.tanDark);}
-  ctx.restore();
-}
-
-// --- DODGE TRAIL ---
-let dodgeTrail = [];
-function updateDodgeTrail(player){
-  if(player.dodging){
-    dodgeTrail.push({x:player.x, y:player.y, facing:player.facing, life:1});
-  }
-  for(let i=dodgeTrail.length-1;i>=0;i--){
-    dodgeTrail[i].life -= 0.12;
-    if(dodgeTrail[i].life<=0) dodgeTrail.splice(i,1);
-  }
-}
-function drawDodgeTrail(){
-  for(const t of dodgeTrail){
-    ctx.globalAlpha = t.life*0.35;
-    drawRex(t.x, t.y, t.facing, 0, 'idle', false);
-  }
-  ctx.globalAlpha = 1;
-}
-
-// --- ENEMY SPRITES — 16×16 pixel art ---
-function drawEnemyCat(x, y, facing, animFrame, type){
-  ctx.save();
-  if(facing<0){ctx.translate(S(x),0);ctx.scale(-1,1);ctx.translate(-S(x),0);}
-  switch(type){
-    case 'cat':       drawCatBasic(x-16,y-32,animFrame);break;
-    case 'laserCat':  drawLaserCat(x-16,y-32,animFrame);break;
-    case 'armoredCat':drawArmoredCat(x-16,y-32,animFrame);break;
-    case 'scientist': drawScientist(x-16,y-32,animFrame);break;
-    case 'commando':  drawCommando(x-16,y-32,animFrame);break;
-    case 'stunBaton': drawStunBaton(x-16,y-32,animFrame);break;
-    case 'sniper':    drawSniper(x-16,y-32,animFrame);break;
-    case 'guardDog':  drawGuardDog(x-20,y-40,animFrame);break;
-  }
-  ctx.restore();
-}
-
-const catP = {G:P.gray,g:P.grayDark,L:P.grayLight,R:P.red,Y:P.yellow,y:P.yelBright,B:P.black};
-const catBody = [
-  '..G......G......',
-  '..GG.gg.GG......',
-  '..GRLLLLRG......',
-  '..LyBLLByL......',
-  '...LLLLLL.......',
-  '....LLRLL.......',
-  '....LLLLL.......',
-  '...GGRRGGG......',
-  '...GGGYGGGG.....',
-  '...GGGGGGG.G....',
-  '...gg.gg.gg.....',
-  '....gg.gg.......',
-  '....gg.gg.......',
-  '................',
-  '................',
-  '................'
-];
-function drawCatBasic(ox, oy, af){
-  drawSpr(ox,oy,catBody,catP,2);
-  const lf=[0,2,0,-2][af%4];
-  if(lf!==0){SR(ox+8,oy+24+lf,4,4,P.black);SR(ox+16,oy+24-lf,4,4,P.black);}
-}
-
-const laserP = {B:P.blue,b:P.blueDark,L:P.blueLight,D:P.blueDeep,G:P.grayDark,g:P.gray,l:P.grayLight,Y:P.yellow,y:P.yelBright,K:P.black,R:P.red,r:P.redLight,C:P.creamDk};
-const laserBody = [
-  '..B......B......',
-  '..BB.bb.BB......',
-  '..BLLLLLBL......',
-  '..gYyGYygL......',
-  '..gKKGKKgL......',
-  '....LLRL........',
-  '...BBLBB........',
-  '..BBBBBBBBglll..',
-  '..BBLBLBBB.lR...',
-  '..BBBBBBBBB.....',
-  '..bb.bb.bB......',
-  '....bb.bb.......',
-  '....bb.bb.......',
-  '................',
-  '................',
-  '................'
-];
-function drawLaserCat(ox, oy, af){
-  drawSpr(ox,oy,laserBody,laserP,2);
-  const lf=[0,2,0,-2][af%4];
-  if(lf!==0){SR(ox+8,oy+24+lf,4,2,P.black);SR(ox+16,oy+24-lf,4,2,P.black);}
-  ctx.globalAlpha=0.3;SR(ox+24,oy+14,8,6,P.lava);ctx.globalAlpha=1;
-  ctx.strokeStyle=P.creamDk;ctx.lineWidth=S(0.5);
-  ctx.beginPath();ctx.moveTo(S(ox+4),S(oy+12));ctx.lineTo(S(ox+10),S(oy+11));ctx.stroke();
-  ctx.beginPath();ctx.moveTo(S(ox+22),S(oy+12));ctx.lineTo(S(ox+16),S(oy+11));ctx.stroke();
-}
-
-const armorP = {G:P.grayDark,g:P.grayDeep,M:P.metal,m:P.metalLight,K:P.metalDk,k:P.metalBright,R:P.red,r:P.redLight,B:P.black};
-const armorBody = [
-  '..G..gg..G......',
-  '..GGkmmkGG......',
-  '..GkMMMMMkG.....',
-  '...BRRRRRRB.....',
-  '...GMMMMMMG.....',
-  '....GGBGGG......',
-  '....GGGGG.......',
-  '.kMMGGGGMMk.....',
-  '.kMMGGGGMMk.....',
-  '..GMMGGMMG.G....',
-  '..gg....gg.g....',
-  '...gg..gg.......',
-  '...gg..gg.......',
-  '................',
-  '................',
-  '................'
-];
-function drawArmoredCat(ox, oy, af){
-  drawSpr(ox,oy,armorBody,armorP,2);
-  const lf=[0,2,0,-2][af%4];
-  if(lf!==0){SR(ox+6,oy+24+lf,4,2,P.metal);SR(ox+14,oy+24-lf,4,2,P.metal);}
-  ctx.globalAlpha=0.2;SR(ox+6,oy+6,18,4,P.red);ctx.globalAlpha=1;
-}
-
-const sciP = {W:P.white,C:P.cream,c:P.creamDk,G:P.gray,g:P.grayDark,L:P.grayLight,B:P.blue,K:P.black,R:P.red,r:P.redLight,Y:P.yelDark};
-const sciBody = [
-  '..G......G......',
-  '..GG.gg.GG......',
-  '..GRLLLLRG......',
-  '..LYKLLYKL......',
-  '...LLLLLL.......',
-  '....LLRLL.......',
-  '....LLLLL.......',
-  '..WWWBWWWW......',
-  '..WWcRWcWW......',
-  '..WWWWWWWW......',
-  '..cc...cc.......',
-  '....cc.cc.......',
-  '....cc.cc.......',
-  '................',
-  '................',
-  '................'
-];
-function drawScientist(ox, oy, af){
-  drawSpr(ox,oy,sciBody,sciP,2);
-  const lf=[0,2,0,-2][af%4];
-  if(lf!==0){SR(ox+8,oy+24+lf,4,2,P.black);SR(ox+16,oy+24-lf,4,2,P.black);}
-  ctx.strokeStyle=P.yelDark;ctx.lineWidth=S(1);
-  ctx.beginPath();ctx.arc(S(ox+10),S(oy+7),S(2),0,Math.PI*2);ctx.stroke();
-  ctx.beginPath();ctx.arc(S(ox+16),S(oy+7),S(2),0,Math.PI*2);ctx.stroke();
-  SR(ox-4,oy+14,4,8,P.cream);SR(ox-3,oy+15,2,6,P.white);SR(ox-3,oy+13,4,2,P.tanDark);
-  ctx.strokeStyle=P.creamDk;ctx.lineWidth=S(0.5);
-  ctx.beginPath();ctx.moveTo(S(ox+4),S(oy+12));ctx.lineTo(S(ox+10),S(oy+11));ctx.stroke();
-  ctx.beginPath();ctx.moveTo(S(ox+22),S(oy+12));ctx.lineTo(S(ox+16),S(oy+11));ctx.stroke();
-}
-
-const cmdoP = {O:P.orange,o:P.orangeDk,D:P.orangeDp,R:P.red,r:P.redLight,T:P.tan,t:P.tanDark,d:P.tanDeep,G:P.milGreen,Y:P.yellow,y:P.yelBright,B:P.black,K:P.yelDark};
-const cmdoBody = [
-  '..O......O......',
-  '..OO.oo.OO......',
-  '..ORRRRRO..rr...',
-  '..OyBOOByO......',
-  '...OOOOOO.......',
-  '....OOROO.......',
-  '....OOOOO.......',
-  '..OOdGdGoOO.....',
-  '..OOtKtOOOO.....',
-  '..OOOOOOOO.O....',
-  '..dd..dd.dd.....',
-  '....dd.dd.......',
-  '....dd.dd.......',
-  '................',
-  '................',
-  '................'
-];
-function drawCommando(ox, oy, af){
-  drawSpr(ox,oy,cmdoBody,cmdoP,2);
-  const lf=[0,2,0,-2][af%4];
-  if(lf!==0){SR(ox+8,oy+24+lf,4,2,P.tanDeep);SR(ox+16,oy+24-lf,4,2,P.tanDeep);}
-  ctx.strokeStyle=P.tan;ctx.lineWidth=S(0.5);
-  ctx.beginPath();ctx.moveTo(S(ox+4),S(oy+12));ctx.lineTo(S(ox+10),S(oy+11));ctx.stroke();
-  ctx.beginPath();ctx.moveTo(S(ox+22),S(oy+12));ctx.lineTo(S(ox+16),S(oy+11));ctx.stroke();
-}
-
-const stunP = {P:P.purple,p:P.purpLight,D:P.purpDark,d:P.purpDeep,Y:P.yellow,y:P.yelBright,K:P.yelDark,G:P.gray,g:P.grayDark,l:P.grayLight,B:P.black,R:P.red};
-const stunBody = [
-  '..P......P......',
-  '..PP.pp.PP......',
-  '..PDDDDDPD......',
-  '..DyBDDByD......',
-  '...DDDDDD.......',
-  '....DDRDD.......',
-  '....DDDDD.......',
-  '..PPPPPPPPGlllY.',
-  '..PPDpDPPPGlYy..',
-  '..PPPPPPPP......',
-  '..dd...dd.......',
-  '....dd.dd.......',
-  '....dd.dd.......',
-  '................',
-  '................',
-  '................'
-];
-function drawStunBaton(ox, oy, af){
-  drawSpr(ox,oy,stunBody,stunP,2);
-  const lf=[0,2,0,-2][af%4];
-  if(lf!==0){SR(ox+6,oy+24+lf,4,2,P.purpDeep);SR(ox+14,oy+24-lf,4,2,P.purpDeep);}
-  if(af%4<2){SR(ox+28,oy+12,4,8,P.yelDark);SR(ox+30,oy+10,2,2,P.yelBright);SR(ox+28,oy+20,2,2,P.yelBright);ctx.globalAlpha=0.25;SR(ox+26,oy+8,8,16,P.yellow);ctx.globalAlpha=1;}
-  ctx.strokeStyle=P.creamDk;ctx.lineWidth=S(0.5);
-  ctx.beginPath();ctx.moveTo(S(ox+4),S(oy+12));ctx.lineTo(S(ox+10),S(oy+11));ctx.stroke();
-  ctx.beginPath();ctx.moveTo(S(ox+22),S(oy+12));ctx.lineTo(S(ox+16),S(oy+11));ctx.stroke();
-}
-
-const snipP = {G:P.milGreen,g:P.milMid,L:P.milLight,l:P.milBright,D:P.milDark,T:P.tanDark,t:P.tanDeep,Y:P.yelDark,y:P.yellow,B:P.black,K:P.blue,k:P.blueLight,M:P.metal,m:P.metalLight,S:P.gray,s:P.grayLight,R:P.red};
-const snipBody = [
-  '..lLLLLLLl......',
-  '..GLLLLLGG......',
-  '..GGLLLLLG......',
-  '..LyBLLByL......',
-  '...LLLLLL.......',
-  '....LLRLL.......',
-  '....LLLLL.......',
-  '..GGgGGgGGSsssss',
-  '..GGTgTGGGSsMms.',
-  '..GGGGGGGG.SBBs.',
-  '..DD...DD.......',
-  '....DD.DD.......',
-  '....DD.DD.......',
-  '................',
-  '................',
-  '................'
-];
-function drawSniper(ox, oy, af){
-  drawSpr(ox,oy,snipBody,snipP,2);
-  const lf=[0,2,0,-2][af%4];
-  if(lf!==0){SR(ox+8,oy+24+lf,4,2,P.tanDeep);SR(ox+16,oy+24-lf,4,2,P.tanDeep);}
-  ctx.globalAlpha=0.2;SC(ox+26,oy+17,2,P.blueLight);ctx.globalAlpha=1;
-  ctx.strokeStyle=P.creamDk;ctx.lineWidth=S(0.5);
-  ctx.beginPath();ctx.moveTo(S(ox+4),S(oy+12));ctx.lineTo(S(ox+10),S(oy+11));ctx.stroke();
-  ctx.beginPath();ctx.moveTo(S(ox+22),S(oy+12));ctx.lineTo(S(ox+16),S(oy+11));ctx.stroke();
-}
-
-const gdogP = {M:P.metal,m:P.metalDk,K:P.metalLight,k:P.metalBright,D:P.metalDeep,S:P.steelBlue,s:P.steelLight,R:P.red,r:P.redLight,d:P.redDark,B:P.black,O:P.orange,G:P.gray,g:P.grayDeep};
-const gdogBody = [
-  '......kKKKk.....',
-  '.....KMMMMMK....',
-  '....MMMMMMMMMM..',
-  '...BdRMMMMRdB...',
-  '...BRRMMMMRRB...',
-  '...BBBBBBBBBB...',
-  '...BRBRBRBRBs...',
-  '..kMMMMMMMMMMk..',
-  '..KMSSMMSSKMM...',
-  '..MMKMMMMKMMM...',
-  '..MMMMMMMMMMMM..',
-  '..mm..MMMM..mm..',
-  '..mm..MMMM..mm..',
-  '..BB...BB...BB..',
-  '................',
-  '................'
-];
-function drawGuardDog(ox, oy, af){
-  drawSpr(ox,oy,gdogBody,gdogP,2.5);
-  const lf=[0,3,0,-3][af%4];
-  if(lf!==0){SR(ox+5,oy+30+lf,6,4,P.metalDk);SR(ox+27,oy+30-lf,6,4,P.metalDk);}
-  SR(ox+18,oy-6,4,8,P.gray);SR(ox+17,oy-8,6,3,P.red);SR(ox+17,oy-8,6,1,P.redLight);
-  if(af%6<3){SR(ox+18,oy-10,4,3,P.orange);ctx.globalAlpha=0.3;SR(ox+16,oy-12,8,7,P.orange);ctx.globalAlpha=1;}
-  if(af%4<2){ctx.globalAlpha=0.2;SR(ox+7,oy+5,12,8,P.red);SR(ox+22,oy+5,12,8,P.red);ctx.globalAlpha=1;}
-}
-
-// --- BOSS SPRITES ---
-const clawP = {G:P.gray,g:P.grayDark,L:P.grayLight,S:P.grayShadow,K:P.grayDeep,M:P.milGreen,m:P.milLight,D:P.milDark,l:P.milBright,Y:P.yellow,y:P.yelBright,E:P.yelDark,R:P.red,r:P.redLight,d:P.redDark,T:P.tan,t:P.tanLight,C:P.cream,W:P.white,B:P.black,N:P.metal,n:P.metalLight,O:P.metalDk,o:P.metalBright,P:P.gold,p:P.goldLight};
-const clawBody = [
-  '....mMMMMm......',
-  '...YlMMMMMD.....',
-  '.gRGGGGGGRg.....',
-  '.gBLLLLLLLg.....',
-  '..GLyELLBLG.....',
-  '..GLLdLLLLG.....',
-  '...TCTCTWCTL....',
-  '....LLLLLLLL....',
-  '.tMYYMYYMMNn....',
-  '.tMYYMMMMNNOn...',
-  '.tMMMMMMMMNnn...',
-  '..gMMMMMMg.nn...',
-  '..gMLMLMg.......',
-  '..gMMMMMMg......',
-  '..GGgGgGGG......',
-  '..GGgGgGGG......',
-  '..GG...GGG......',
-  '..GG...GGG......',
-  '..GG...GGG......',
-  '..GG...GGG......',
-  '..BB...BBB......',
-  '..BB...BBB......',
-  '................',
-  '................'
-];
-function drawColonelClaw(x, y, animFrame, hp, maxHp){
-  const ox=x-24, oy=y-36;
-  ctx.globalAlpha=0.25;SR(ox+6,oy+68,36,5,P.trueBlack);ctx.globalAlpha=1;
-  drawSpr(ox,oy,clawBody,clawP,3);
-  // Claw fingers animation
-  const clawOff=animFrame%6<3?3:0;
-  SR(ox+42,oy+28+clawOff,4,6,P.metalLight);SR(ox+42,oy+34,4,6,P.metalLight);SR(ox+42,oy+40-clawOff,4,6,P.metalLight);
-  SR(ox+44,oy+30,3,3,P.grayLight);SR(ox+44,oy+36,3,3,P.grayLight);SR(ox+44,oy+42,3,3,P.grayLight);
-  // Whiskers
-  ctx.strokeStyle=P.creamDk;ctx.lineWidth=S(1);
-  ctx.beginPath();ctx.moveTo(S(ox+2),S(oy+16));ctx.lineTo(S(ox+14),S(oy+16));ctx.stroke();
-  ctx.beginPath();ctx.moveTo(S(ox+2),S(oy+18));ctx.lineTo(S(ox+14),S(oy+19));ctx.stroke();
-  ctx.beginPath();ctx.moveTo(S(ox+46),S(oy+16));ctx.lineTo(S(ox+34),S(oy+16));ctx.stroke();
-  ctx.beginPath();ctx.moveTo(S(ox+46),S(oy+18));ctx.lineTo(S(ox+34),S(oy+19));ctx.stroke();
-  // Leg animation
-  const lf=[0,2,0,-2][animFrame%4];
-  if(lf!==0){SR(ox+6,oy+63+lf,6,4,P.black);SR(ox+21,oy+63-lf,6,4,P.black);}
-  // HP armor segments
-  const seg=Math.ceil(hp/maxHp*3);
-  for(let i=0;i<3;i++){
-    const c=i<seg?P.milGreen:P.grayDeep;
-    SR(ox+13+i*10,oy+38,8,5,c);
-    SR(ox+13+i*10,oy+38,8,1,i<seg?P.milBright:P.grayDark);
-    SR(ox+14+i*10,oy+39,6,3,i<seg?P.milLight:P.grayDark);
-  }
-}
-
-const drwP = {C:P.cream,c:P.creamDk,D:P.creamLight,S:P.creamShadow,M:P.metal,m:P.metalDk,K:P.metalLight,k:P.metalBright,H:P.metalDeep,B:P.blue,b:P.blueDark,L:P.blueLight,l:P.blueBright,G:P.gold,g:P.goldLight,Y:P.yellow,y:P.yelBright,E:P.yelDark,R:P.red,r:P.redLight,T:P.tan,t:P.tanLight,A:P.black,W:P.white,P:P.purple};
-const drwBody = [
-  '...gGGGGGGg.....',
-  '..GRgYyYgRG.....',
-  '..cRCCCCCRc.....',
-  '.DCcccccccCD....',
-  '.DCAcDDcADCD....',
-  '.DCAADDAADCD....',
-  '..CDDRRDDCc.....',
-  '...CCDDCC.......',
-  '..KkBBBBkK......',
-  '..KKBLBBKK......',
-  '..KKBBBBKK......',
-  '.TKMMMMMmKT.....',
-  '.TKMMMMmMKT.....',
-  '..KMMMMmmK......',
-  '..mm.KK.mm......',
-  '..mm.KK.mm......',
-  '..mm.KK.mm......',
-  '..AA..AA........',
-  '..AA..AA........',
-  '................'
-];
-function drawDrWhiskers(x, y, animFrame, hp, maxHp){
-  const ox=x-28, oy=y-40;
-  ctx.globalAlpha=0.25;SR(ox+8,oy+78,40,5,P.trueBlack);ctx.globalAlpha=1;
-  drawSpr(ox,oy,drwBody,drwP,4);
-  // Core reactor glow
-  if(animFrame%4<2){ctx.globalAlpha=0.25;SR(ox+22,oy+36,20,16,P.blue);ctx.globalAlpha=1;}
-  // Monocle
-  ctx.strokeStyle=P.gold;ctx.lineWidth=S(1.5);
-  ctx.beginPath();ctx.arc(S(ox+22),S(oy+18),S(6),0,Math.PI*2);ctx.stroke();
-  ctx.globalAlpha=0.2;SC(ox+20,oy+16,2,P.white);ctx.globalAlpha=1;
-  // Mustache
-  ctx.strokeStyle=P.black;ctx.lineWidth=S(1.5);
-  ctx.beginPath();ctx.moveTo(S(ox+20),S(oy+26));ctx.bezierCurveTo(S(ox+16),S(oy+24),S(ox+12),S(oy+30),S(ox+16),S(oy+30));ctx.stroke();
-  ctx.beginPath();ctx.moveTo(S(ox+36),S(oy+26));ctx.bezierCurveTo(S(ox+40),S(oy+24),S(ox+44),S(oy+30),S(ox+40),S(oy+30));ctx.stroke();
-  // Whiskers
-  ctx.strokeStyle=P.cream;ctx.lineWidth=S(0.8);
-  ctx.beginPath();ctx.moveTo(S(ox+4),S(oy+20));ctx.lineTo(S(ox+16),S(oy+20));ctx.stroke();
-  ctx.beginPath();ctx.moveTo(S(ox+4),S(oy+22));ctx.lineTo(S(ox+16),S(oy+23));ctx.stroke();
-  ctx.beginPath();ctx.moveTo(S(ox+52),S(oy+20));ctx.lineTo(S(ox+40),S(oy+20));ctx.stroke();
-  ctx.beginPath();ctx.moveTo(S(ox+52),S(oy+22));ctx.lineTo(S(ox+40),S(oy+23));ctx.stroke();
-  // Leg animation
-  const lf=[0,2,0,-2][animFrame%4];
-  if(lf!==0){SR(ox+12,oy+68+lf,14,4,P.black);SR(ox+30,oy+68-lf,14,4,P.black);}
-  // HP segments
-  const seg=Math.ceil(hp/maxHp*3);
-  for(let i=0;i<3;i++){
-    const c=i<seg?P.blueDark:P.grayDeep;
-    SR(ox+13+i*12,oy+50,10,5,c);
-    SR(ox+13+i*12,oy+50,10,1,i<seg?P.blueBright:P.grayDark);
-    SR(ox+14+i*12,oy+51,8,3,i<seg?P.blue:P.grayDark);
-  }
-}
-
-// ============================================================
-// PICKUPS
-// ============================================================
-function drawPickup(x, y, type, bobOff){
-  const by=y+Math.sin(bobOff)*3;
-  ctx.globalAlpha=0.12;
-  const gc=type==='health'?P.red:type==='bone'?P.yellow:P.blue;
-  SC(x,by,10,gc);ctx.globalAlpha=1;
-  switch(type){
-    case 'health':{
-      const d=['...RR...','...RR...','RRRRRRRR','RRRRRRRR','...RR...','...RR...','........','........'];
-      const p={R:P.red};drawSpr(x-8,by-6,d,p,2);
-      SR(x-1,by-4,2,8,P.redDark);SR(x-5,by,10,2,P.redDark);SR(x-5,by-6,2,2,P.cream);
-      break;}
-    case 'bone':{
-      const d=['CC....CC','CCCCCCCC','.CcccCC.','CC....CC','........','........','........','........'];
-      const p={C:P.cream,c:P.creamDk};drawSpr(x-8,by-4,d,p,2);
-      break;}
-    case 'shield':{
-      const d=['..BBBB..','BBLLLLBB','BLccccLB','BLccccLB','BBCCCCBB','..BBBB..','...BB...','........'];
-      const p={B:P.blue,L:P.blueLight,c:P.cream,C:P.cream};drawSpr(x-8,by-8,d,p,2);
-      break;}
-  }
-}
-
-// ============================================================
-// PROJECTILE DRAWING
-// ============================================================
-function drawProjectile(x, y, type){
-  switch(type){
-    case 'laser':
-      SR(x-8,y-1,16,2,P.red);
-      SR(x-6,y-2,12,4,P.lava);
-      ctx.globalAlpha=0.5;
-      SR(x-10,y-3,20,6,P.lavaGlow);
-      ctx.globalAlpha=1;
-      break;
-    case 'sniperBullet':
-      SR(x-3,y-1,6,2,P.yellow);
-      SR(x-2,y-1,4,2,P.cream);
-      break;
-    case 'bossSlash':
-      SR(x-6,y-8,12,16,P.metal);
-      SR(x-4,y-6,8,12,P.cream);
-      ctx.globalAlpha=0.4;
-      SR(x-8,y-10,16,20,P.yellow);
-      ctx.globalAlpha=1;
-      break;
-    case 'bossOrb':
-      SR(x-4,y-4,8,8,P.purple);
-      SR(x-3,y-3,6,6,P.blue);
-      SR(x-2,y-2,4,4,P.cream);
-      ctx.globalAlpha=0.3;
-      SR(x-6,y-6,12,12,P.blue);
-      ctx.globalAlpha=1;
-      break;
-  }
-}
-
-// ============================================================
-// BACKGROUND DRAWING
-// ============================================================
-let bgStars = [];
-for(let i=0;i<60;i++) bgStars.push({x:Math.random()*BASE_W, y:Math.random()*BASE_H*0.5, s:1+Math.random()*2, b:Math.random()});
-
-function drawBackground(){
-  // Per-level sky colors
-  const skyThemes = [
-    [P.bgDark, P.bgMid, P.bgDeep],        // L1: night patrol
-    ['#0a1428', '#102040', '#183060'],      // L2: underground lab (deep blue)
-    [P.purpDeep, P.purpDark, '#1a1030'],    // L3: enemy territory (purple dusk)
-    ['#1a1014', '#2a1824', '#0a0a14'],      // L4: fortress (dark crimson)
-    ['#200808', '#301010', '#100404']        // L5: volcano lair (deep red)
-  ];
-  const groundThemes = [
-    [P.milGreen, P.milMid, P.milLight],     // L1: grass
-    [P.grayDark, P.gray, P.grayDeep],       // L2: concrete
-    [P.tanDeep, P.tanDark, P.tan],          // L3: dirt/sand
-    [P.metalDk, P.metal, P.grayDeep],       // L4: metal floor
-    [P.redDeep, P.redDark, P.red]           // L5: volcanic rock
-  ];
-  const buildingColors = [P.grayDeep, P.blueDeep, P.purpDeep, P.grayDark, P.redDeep];
-
-  const li = Math.min(level-1, 4);
-  const sky = skyThemes[li];
-  const gnd = groundThemes[li];
-
-  // Sky - smooth 8-band gradient (32-bit style)
-  const bandH = Math.ceil(GROUND_Y / 8);
-  for(let i=0;i<8;i++){
-    const t = i/7;
-    const ci = t < 0.5 ? 0 : 1;
-    const ct = t < 0.5 ? t*2 : (t-0.5)*2;
-    const c = lerpColor(sky[ci], sky[ci+1], ct);
-    SR(0, i*bandH, BASE_W, bandH+1, c);
-  }
-
-  // Stars (not in underground lab)
-  if(level !== 2){
-    for(const s of bgStars){
-      const twinkle = Math.sin(frame*0.05+s.b*10)*0.3+0.7;
-      ctx.globalAlpha = twinkle * (s.b*0.5+0.5);
-      // Larger stars get a glow
-      if(s.s > 1.5){
-        ctx.globalAlpha *= 0.15;
-        SC(s.x+s.s/2, s.y+s.s/2, s.s+1, P.creamLight);
-        ctx.globalAlpha = twinkle * (s.b*0.5+0.5);
-      }
-      SR(s.x, s.y, s.s, s.s, P.cream);
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  // Level-specific background elements
-  const bOff = (frame*0.3)%BASE_W;
-
-  // Parallax far buildings (slow scroll, darker, behind main buildings)
-  if(level !== 2){
-    const farOff = (frame*0.1)%BASE_W;
-    ctx.globalAlpha = 0.35;
-    for(let i=0;i<8;i++){
-      const bx = ((i*130 - farOff)%BASE_W+BASE_W)%BASE_W - 50;
-      const bh = 20 + (i*23%20);
-      SR(bx, GROUND_Y-bh, 50, bh, P.black);
-      SR(bx+8, GROUND_Y-bh+5, 4, 4, P.yelShadow||P.yelDeep);
-      SR(bx+28, GROUND_Y-bh+7, 4, 4, P.yelShadow||P.yelDeep);
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  if(level === 2){
-    // Lab: pipes and panels with metallic shading
-    for(let i=0;i<8;i++){
-      const px = ((i*120)%BASE_W+BASE_W)%BASE_W;
-      SRG(px, 80, 4, GROUND_Y-80, P.gray, P.grayDark); // pipe gradient
-      SR(px-1, 80, 6, 4, P.gray);
-      SR(px-1, 80, 6, 1, P.grayLight);                  // bracket highlight
-      SR(px-1, GROUND_Y-40, 6, 4, P.gray);
-      SR(px-1, GROUND_Y-40, 6, 1, P.grayLight);
-      if(i%2===0){
-        SR(px+15, 120, 30, 20, P.grayDeep);
-        SRG(px+17, 122, 26, 16, P.blueDeep, P.blueShadow||P.blueDeep);
-        SR(px+17, 122, 26, 2, P.blueDark);               // panel highlight
-        SR(px+20, 125, 4, 4, frame%60<30?P.hudBright:P.hudDark);
-        if(frame%60<30){
-          ctx.globalAlpha=0.15; SR(px+18,123,8,8,P.hudBright); ctx.globalAlpha=1; // light glow
-        }
-      }
-    }
-  } else {
-    // Buildings / scenery with shading
-    for(let i=0;i<10;i++){
-      const bx = ((i*100 - bOff)%BASE_W+BASE_W)%BASE_W - 50;
-      const bh = 40 + (i*37%30);
-      SR(bx, GROUND_Y-bh, 40, bh, buildingColors[li]);
-      SR(bx, GROUND_Y-bh, 40, 4, lerpColor(buildingColors[li],'#ffffff',0.1)); // roof highlight
-      SR(bx, GROUND_Y-4, 40, 4, P.black);                // base shadow
-      // Windows with glow
-      SR(bx+5, GROUND_Y-bh+10, 6, 6, P.yelDeep);
-      SR(bx+5, GROUND_Y-bh+10, 6, 2, P.yelDark);       // window highlight
-      SR(bx+20, GROUND_Y-bh+8, 6, 6, P.yelDeep);
-      SR(bx+20, GROUND_Y-bh+8, 6, 2, P.yelDark);
-      ctx.globalAlpha=0.08;
-      SR(bx+3, GROUND_Y-bh+8, 10, 10, P.yellow);        // window light glow
-      SR(bx+18, GROUND_Y-bh+6, 10, 10, P.yellow);
-      ctx.globalAlpha=1;
-      if(level >= 4){
-        // Fortress: turrets with metallic shading
-        SRG(bx+10, GROUND_Y-bh-8, 20, 10, P.gray, P.grayDark);
-        SRG(bx+14, GROUND_Y-bh-12, 12, 6, P.metalLight, P.metalDk);
-      }
-    }
-  }
-
-  // Level 5: lava pools with glow
-  if(level === 5){
-    for(let i=0;i<5;i++){
-      const lx = (i*180+40)%BASE_W;
-      SRG(lx, GROUND_Y-4, 30, 4, P.lavaGlow, P.lava);
-      ctx.globalAlpha=0.15; SR(lx-4, GROUND_Y-8, 38, 10, P.lava); ctx.globalAlpha=1; // lava glow
-      if(frame%30<15){
-        SR(lx+5, GROUND_Y-6, 8, 3, P.lavaBright);
-      }
-      if(frame%20===0 && Math.random()<0.3) spawnLavaBubble(lx+15, GROUND_Y-6);
-    }
-    // Heat shimmer particles
-    if(frame%10===0) spawnParticles(Math.random()*BASE_W, GROUND_Y-5, 1,
-      [P.creamDk], {speed:0.3, size:1, upBias:0.8, gravity:-0.02});
-  }
-
-  // Ground with gradient (3-strip shading)
-  SRG(0, GROUND_Y, BASE_W, BASE_H-GROUND_Y, gnd[1], gnd[0]);
-  SR(0, GROUND_Y, BASE_W, 3, gnd[2]);                    // top edge highlight
-  SR(0, GROUND_Y+3, BASE_W, 1, gnd[1]);                  // secondary edge
-
-  // Ground details with varied sizes
-  for(let i=0;i<20;i++){
-    const gx = (i*45 + frame*0.2)%BASE_W;
-    SR(gx, GROUND_Y+5+Math.sin(i)*2, 8, 2, gnd[2]);
-    if(i%3===0) SR(gx+12, GROUND_Y+7+Math.cos(i)*2, 4, 1, gnd[2]); // extra detail
-  }
-}
-
-// ============================================================
-// HUD
-// ============================================================
-function drawHUD(){
-  // Top bar with gradient
-  const hudGrd = ctx.createLinearGradient(0, 0, 0, S(24));
-  hudGrd.addColorStop(0, 'rgba(0,0,0,0.85)');
-  hudGrd.addColorStop(1, 'rgba(0,0,0,0.5)');
-  ctx.fillStyle = hudGrd;
-  ctx.fillRect(0, 0, S(BASE_W), S(24));
-  SR(0, 23, BASE_W, 1, P.hudDark);               // bottom border
-
-  // Lives with drop shadow
-  ctx.textAlign = 'left';
-  drawText('HP', 8, 16, P.yellow, 8);
-  for(let i=0;i<lives;i++){
-    // Heart with glow and shine
-    SR(36+i*14, 6, 10, 10, P.red);
-    SRG(36+i*14, 6, 10, 5, P.redLight, P.red);   // heart top highlight
-    SR(36+i*14, 14, 10, 2, P.redDeep);            // heart shadow
-    SR(38+i*14, 8, 6, 6, P.redDark);
-    SR(39+i*14, 7, 4, 4, P.lava);
-    SR(39+i*14, 7, 2, 2, P.lavaBright);           // heart gleam
-  }
-
-  // Score with shadow
-  ctx.textAlign = 'center';
-  drawText(`SCORE ${score}`, BASE_W/2, 16, P.yellow, 8);
-
-  // Level + Wave with shadow
-  ctx.textAlign = 'right';
-  drawText(`LV${level} W${Math.min(currentWave+1, LEVEL_WAVES[Math.min(level-1,4)].length)}/${LEVEL_WAVES[Math.min(level-1,4)].length}`, BASE_W-10, 16, P.hudBright, 8);
-
-  // Combo with glow
-  if(comboCount > 1 && comboTimer > 0){
-    ctx.textAlign = 'center';
-    const comboScale = 1 + Math.sin(frame*0.3)*0.1;
-    // Combo glow
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = P.orange;
-    ctx.font = `${S(12*comboScale)}px 'Press Start 2P', monospace`;
-    ctx.fillText(`${comboCount}x COMBO!`, S(BASE_W/2), S(40));
-    ctx.globalAlpha = 1;
-    drawText(`${comboCount}x COMBO!`, BASE_W/2, 40, P.orangeLight, 10*comboScale);
-  }
-
-  // Level banner with gradient background
-  if(levelBannerTimer > 0){
-    const a = Math.min(1, levelBannerTimer/20);
-    ctx.globalAlpha = a * 0.8;
-    SRG(0, BASE_H/2-40, BASE_W, 60, 'rgba(0,0,0,0.9)', 'rgba(0,0,0,0.5)');
-    SR(0, BASE_H/2-40, BASE_W, 1, P.yelDark);    // top border
-    SR(0, BASE_H/2+19, BASE_W, 1, P.yelDark);    // bottom border
-    ctx.globalAlpha = a;
-    ctx.textAlign = 'center';
-    const titles = LEVEL_INTROS.map(l=>l.title);
-    drawText(titles[Math.min(level-1,4)], BASE_W/2, BASE_H/2 - 15, P.yellow, 14);
-    const objectives = ['CLEAR ALL HOSTILES','INFILTRATE THE LAB','DEFEAT COL. CLAW','BREACH THE FORTRESS','DEFEAT DR. WHISKERS'];
-    drawText(objectives[Math.min(level-1,4)], BASE_W/2, BASE_H/2 + 10, P.cream, 7);
-    ctx.globalAlpha = 1;
-  }
-
-  // Low HP warning with glow
-  if(lives <= 2){
-    const hpColor = frame%20<10 ? P.red : P.yellow;
-    ctx.textAlign = 'left';
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = P.red;
-    ctx.font = `${S(8)}px 'Press Start 2P', monospace`;
-    ctx.fillText('LOW HP!', S(90), S(16));
-    ctx.globalAlpha = 1;
-    drawText('LOW HP!', 90, 16, hpColor, 7);
-  }
-
-  // Controls hint
-  if(controlsHintTimer > 0){
-    controlsHintTimer--;
-    const hintAlpha = Math.min(1, controlsHintTimer / 60);
-    ctx.globalAlpha = hintAlpha * 0.9;
-    SRR(BASE_W/2-160, BASE_H-55, 320, 50, 3, P.black);
-    SR(BASE_W/2-160, BASE_H-55, 320, 1, P.yelDark);     // top border
-    ctx.globalAlpha = hintAlpha;
-    ctx.textAlign = 'center';
-    drawText('ARROWS/WASD: MOVE', BASE_W/2, BASE_H-42, P.yellow, 7);
-    drawText('SPACE: BITE  SHIFT: DODGE', BASE_W/2, BASE_H-28, P.yellow, 7);
-    ctx.globalAlpha = 1;
-  }
-
-  ctx.textAlign = 'left';
-}
-
-// ============================================================
-// PLAYER OBJECT
-// ============================================================
-const GROUND_Y = BASE_H - 60;
-const player = {
-  x: 100, y: GROUND_Y,
-  vx: 0, vy: 0,
-  facing: 1,
-  animFrame: 0, animTimer: 0,
-  action: 'idle',
-  attacking: false, attackTimer: 0, attackCooldown: 0,
-  dodging: false, dodgeTimer: 0, dodgeCooldown: 0,
-  invuln: 0,
-  shieldTimer: 0,
-  speed: 4,
-  damage: 2,
-  stunTimer: 0,
-  hitbox: {w:20, h:24}
-};
-
-function resetPlayer(){
-  player.x = 100; player.y = GROUND_Y;
-  player.vx = 0; player.vy = 0;
-  player.facing = 1; player.animFrame = 0;
-  player.action = 'idle';
-  player.attacking = false; player.attackTimer = 0; player.attackCooldown = 0;
-  player.dodging = false; player.dodgeTimer = 0; player.dodgeCooldown = 0;
-  player.invuln = 120; player.shieldTimer = 0; player.stunTimer = 0;
-}
-
-function updatePlayer(){
-  if(player.stunTimer > 0){ player.stunTimer--; return; }
-
-  // Movement
-  let mx = 0, my = 0;
-  if(keys['ArrowLeft'] || keys['KeyA']){ mx = -1; player.facing = -1; }
-  if(keys['ArrowRight'] || keys['KeyD']){ mx = 1; player.facing = 1; }
-  if(keys['ArrowUp'] || keys['KeyW']){ my = -1; }
-  if(keys['ArrowDown'] || keys['KeyS']){ my = 1; }
-
-  if(!player.dodging && !player.attacking){
-    player.vx = mx * player.speed;
-    player.vy = my * player.speed;
-  }
-
-  // Dodge (Shift)
-  if((justPressed['ShiftLeft']||justPressed['ShiftRight']) && player.dodgeCooldown<=0 && !player.dodging){
-    player.dodging = true;
-    player.dodgeTimer = 12;
-    player.dodgeCooldown = 20;
-    player.vx = player.facing * 6;
-    sfxDodge();
-  }
-
-  if(player.dodging){
-    player.dodgeTimer--;
-    if(player.dodgeTimer <= 0){ player.dodging = false; player.vx = 0; }
-  }
-
-  if(player.dodgeCooldown > 0) player.dodgeCooldown--;
-
-  // Attack (Space / Z)
-  if((justPressed['Space']||justPressed['KeyZ']) && player.attackCooldown<=0 && !player.dodging){
-    player.attacking = true;
-    player.attackTimer = 18;
-    player.attackCooldown = 12;
-    player.action = 'attack';
-    sfxBite();
-  }
-
-  if(player.attacking){
-    player.attackTimer--;
-    if(player.attackTimer <= 0){ player.attacking = false; player.action = 'idle'; player.invuln = Math.max(player.invuln, 60); }
-  }
-
-  if(player.attackCooldown > 0) player.attackCooldown--;
-
-  // Apply movement
-  player.x += player.vx;
-  player.y += player.vy;
-
-  // Bounds
-  player.x = Math.max(14, Math.min(BASE_W-14, player.x));
-  player.y = Math.max(60, Math.min(GROUND_Y, player.y));
-
-  // Animation
-  if(mx!==0 || my!==0){
-    player.animTimer++;
-    if(player.animTimer > 6){ player.animFrame++; player.animTimer=0; }
-    if(!player.attacking) player.action = 'walk';
-  } else {
-    if(!player.attacking) player.action = 'idle';
-  }
-
-  if(player.invuln > 0) player.invuln--;
-  if(player.shieldTimer > 0) player.shieldTimer--;
-
-  updateDodgeTrail(player);
-}
-
-function drawPlayer(){
-  drawDodgeTrail();
-
-  // Flash when invulnerable
-  if(player.invuln > 0 && frame%8 < 3) return;
-
-  // Draw the sprite
-  drawRex(player.x, player.y, player.facing, player.animFrame, player.action, player.dodging);
-
-  // Small bouncing triangle arrow above player
-  const arrowBob = Math.sin(frame*0.12)*2;
-  const ay = player.y - 38 + arrowBob;
-  SR(player.x-1, ay,   2, 2, P.yellow);
-  SR(player.x-3, ay+2, 6, 2, P.yellow);
-  SR(player.x-5, ay+4, 10, 2, P.yelDark);
-
-  // Shield effect - 32-bit double ring with glow
-  if(player.shieldTimer > 0){
-    const pulse = Math.sin(frame*0.2)*0.1;
-    // Outer glow
-    ctx.globalAlpha = 0.1 + pulse*0.5;
-    ctx.fillStyle = P.blueLight;
-    ctx.beginPath();
-    ctx.arc(S(player.x), S(player.y-10), S(22), 0, Math.PI*2);
-    ctx.fill();
-    // Inner ring
-    ctx.globalAlpha = 0.3 + pulse;
-    ctx.strokeStyle = P.blueLight;
-    ctx.lineWidth = S(1);
-    ctx.beginPath();
-    ctx.arc(S(player.x), S(player.y-10), S(16), 0, Math.PI*2);
-    ctx.stroke();
-    // Outer ring
-    ctx.globalAlpha = 0.4 + pulse;
-    ctx.strokeStyle = P.blue;
-    ctx.lineWidth = S(2);
-    ctx.beginPath();
-    ctx.arc(S(player.x), S(player.y-10), S(20), 0, Math.PI*2);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-  }
-}
-
-function playerAttackHitbox(){
-  if(!player.attacking) return null;
-  const w = 60, h = 36;
-  return {
-    x: player.facing > 0 ? player.x - 5 : player.x - w + 5,
-    y: player.y - 26,
-    w, h
-  };
-}
-
-function hurtPlayer(){
-  if(player.invuln > 0 || player.dodging || player.attacking) return;
-  if(player.shieldTimer > 0){
-    player.shieldTimer = 0;
-    spawnHitParticles(player.x, player.y-10, P.blue);
-    sfxDodge();
-    return;
-  }
-  lives--;
-  player.invuln = 120;
-  shakeDur = 10;
-  sfxHit();
-  spawnHitParticles(player.x, player.y-10, P.red);
-  spawnDmg(player.x, player.y-30, 'OUCH!', P.red);
-  if(lives <= 0){
-    sfxDeath();
-    spawnDeathParticles(player.x, player.y-10, P.tan);
-    gameOverMsg = GAME_OVER_MESSAGES[Math.floor(Math.random()*GAME_OVER_MESSAGES.length)];
-    gameState = 'gameOver';
-  }
-}
-
-// ============================================================
-// ENEMY SYSTEM
-// ============================================================
-let enemies = [];
-let projectiles = [];
-
-const ENEMY_DEFS = {
-  cat:        { hp:1, speed:0.45, score:100, color:P.gray,     w:20, h:24 },
-  laserCat:   { hp:2, speed:0.4,  score:200, color:P.blue,     w:20, h:24, shoots:true, shootRate:200 },
-  armoredCat: { hp:3, speed:0.28, score:300, color:P.grayDark, w:20, h:24 },
-  scientist:  { hp:1, speed:0.4,  score:150, color:P.cream,    w:20, h:24 },
-  commando:   { hp:2, speed:0.6,  score:250, color:P.orange,   w:20, h:24 },
-  stunBaton:  { hp:2, speed:0.45, score:200, color:P.purple,   w:20, h:24, stuns:true },
-  sniper:     { hp:1, speed:0.25, score:300, color:P.milGreen, w:20, h:24, shoots:true, shootRate:240 },
-  guardDog:   { hp:5, speed:0.2,  score:500, color:P.metal,    w:36, h:34 }
-};
-
-const LEVEL_WAVES = [
-  // Level 1 - easy intro
-  [
-    [{type:'cat',count:2,delay:90}],
-    [{type:'cat',count:2,delay:70}],
-    [{type:'cat',count:3,delay:60},{type:'laserCat',count:1,delay:100}]
-  ],
-  // Level 2
-  [
-    [{type:'cat',count:2,delay:70},{type:'laserCat',count:1,delay:100}],
-    [{type:'commando',count:1,delay:80},{type:'cat',count:2,delay:60}],
-    [{type:'armoredCat',count:1,delay:90},{type:'laserCat',count:1,delay:80}]
-  ],
-  // Level 3
-  [
-    [{type:'stunBaton',count:1,delay:80},{type:'commando',count:1,delay:70}],
-    [{type:'sniper',count:1,delay:100},{type:'cat',count:2,delay:55}],
-    [{type:'armoredCat',count:1,delay:70},{type:'stunBaton',count:1,delay:80}]
-  ],
-  // Level 4
-  [
-    [{type:'commando',count:1,delay:60},{type:'sniper',count:1,delay:90}],
-    [{type:'guardDog',count:1,delay:0},{type:'cat',count:2,delay:60}],
-    [{type:'armoredCat',count:1,delay:65},{type:'stunBaton',count:1,delay:70},{type:'laserCat',count:1,delay:80}]
-  ],
-  // Level 5
-  [
-    [{type:'guardDog',count:1,delay:0},{type:'commando',count:1,delay:60}],
-    [{type:'sniper',count:1,delay:70},{type:'armoredCat',count:1,delay:60}],
-    [{type:'guardDog',count:1,delay:0},{type:'stunBaton',count:1,delay:60}]
-  ]
-];
-
-let currentWave = 0, waveSpawnTimer = 0, waveSpawnQueue = [];
-let waveActive = false, waveClearDelay = 0;
-
-function startLevel(lv){
-  level = lv;
-  enemies = [];
-  projectiles = [];
-  pickups = [];
-  particles = [];
-  dmgNumbers = [];
-  dodgeTrail = [];
-  currentWave = 0;
-  waveActive = false;
-  waveClearDelay = 0;
-  levelBannerTimer = 60;
-  if(lv === 1) controlsHintTimer = 300; // 5 seconds of controls hint on level 1
-  resetPlayer();
-  startWave();
-}
-
-function startWave(){
-  if(currentWave >= LEVEL_WAVES[Math.min(level-1,4)].length){
-    // All waves done => boss or level complete
-    if(level === 3 || level === 5){
-      triggerRadioComm('preBoss');
-      initBoss();
-      bossEntrance = true;
-      bossEntranceTimer = 60;
-      const bossType = level === 3 ? 'colonelClaw' : 'drWhiskers';
-      const dialogue = BOSS_DIALOGUE[bossType];
-      bossPhaseTaunted = {};
-      gameState = 'bossIntro';
-      startBossDialogue(dialogue.entrance, ()=>{
-        gameState = 'boss';
-      });
-    } else if(level === 2 || level === 4){
-      gameState = 'codeScreen';
-      showCodeScreen();
-    } else {
-      levelComplete();
-    }
-    return;
-  }
-  waveSpawnQueue = [];
-  const waveDef = LEVEL_WAVES[Math.min(level-1,4)][currentWave];
-  for(const group of waveDef){
-    for(let i=0;i<group.count;i++){
-      waveSpawnQueue.push({type:group.type, timer: group.delay * i + 30});
-    }
-  }
-  waveActive = true;
-}
-
-function spawnEnemy(type){
-  const def = ENEMY_DEFS[type];
-  const side = Math.random()<0.5 ? -1 : 1;
-  const ex = side < 0 ? -20 : BASE_W+20;
-  const ey = GROUND_Y - Math.random()*80;
-  enemies.push({
-    x: ex, y: ey,
-    type, hp: def.hp, maxHp: def.hp,
-    speed: def.speed * (0.8 + Math.random()*0.4),
-    facing: side < 0 ? 1 : -1,
-    animFrame: 0, animTimer: 0,
-    score: def.score, color: def.color,
-    w: def.w, h: def.h,
-    shootTimer: def.shootRate || 0,
-    shootRate: def.shootRate || 999,
-    stuns: def.stuns || false,
-    hitFlash: 0,
-    meleeCooldown: 0,
-    state: 'chase'
-  });
-}
-
-function updateEnemies(){
-  // Spawn from queue
-  for(let i=waveSpawnQueue.length-1;i>=0;i--){
-    waveSpawnQueue[i].timer--;
-    if(waveSpawnQueue[i].timer <= 0){
-      spawnEnemy(waveSpawnQueue[i].type);
-      waveSpawnQueue.splice(i,1);
-    }
-  }
-
-  for(let i=enemies.length-1;i>=0;i--){
-    const e = enemies[i];
-    // Chase player
-    const dx = player.x - e.x, dy = player.y - e.y;
-    const dist = Math.sqrt(dx*dx+dy*dy) || 1;
-    e.facing = dx > 0 ? 1 : -1;
-
-    if(dist > 30){
-      e.x += (dx/dist) * e.speed;
-      e.y += (dy/dist) * e.speed * 0.5;
-    }
-
-    // Keep in ground area
-    e.y = Math.max(60, Math.min(GROUND_Y, e.y));
-
-    // Animation
-    e.animTimer++;
-    if(e.animTimer > 8){ e.animFrame++; e.animTimer = 0; }
-
-    // Hit flash
-    if(e.hitFlash > 0) e.hitFlash--;
-
-    // Shooting
-    if(e.shootRate < 999){
-      e.shootTimer--;
-      if(e.shootTimer <= 0){
-        e.shootTimer = e.shootRate;
-        const ptype = e.type === 'sniper' ? 'sniperBullet' : 'laser';
-        const pdx = player.x - e.x, pdy = player.y - e.y;
-        const pd = Math.sqrt(pdx*pdx+pdy*pdy)||1;
-        projectiles.push({
-          x: e.x, y: e.y - 5,
-          vx: (pdx/pd)*2, vy: (pdy/pd)*2,
-          type: ptype, life: 90, damage: 1, fromEnemy: true
-        });
-        if(ptype === 'laser') sfxLaser();
-      }
-    }
-
-    // Melee cooldown
-    if(e.meleeCooldown > 0) e.meleeCooldown--;
-
-    // Check if hit by player attack FIRST (before melee)
-    let enemyWasHit = false;
-    const atk = playerAttackHitbox();
-    if(atk && e.hitFlash <= 0){
-      if(e.x > atk.x && e.x < atk.x+atk.w && e.y-10 > atk.y && e.y-10 < atk.y+atk.h){
-        e.hp -= player.damage;
-        e.hitFlash = 8;
-        enemyWasHit = true;
-        spawnHitParticles(e.x, e.y-10, e.color);
-        spawnDmg(e.x, e.y-20, `-${player.damage}`, P.yellow);
-        sfxBite();
-
-        // Knockback enemy away on hit
-        const kbx = (e.x - player.x);
-        const kby = (e.y - player.y);
-        const kbd = Math.sqrt(kbx*kbx+kby*kby)||1;
-        e.x += (kbx/kbd) * 70;
-        e.y += (kby/kbd) * 30;
-        e.x = Math.max(10, Math.min(BASE_W-10, e.x));
-        e.y = Math.max(60, Math.min(GROUND_Y, e.y));
-
-        if(e.hp <= 0){
-          score += e.score;
-          comboCount++;
-          comboTimer = 90;
-          if(comboCount > 2) sfxCombo();
-          spawnDeathParticles(e.x, e.y-10, e.color);
-          spawnDmg(e.x, e.y-30, `+${e.score}`, P.yellow);
-
-          // Track kills for radio comms
-          levelKillCount++;
-          if(levelKillCount === 5) triggerRadioComm('kills:5');
-          if(levelKillCount === 10) triggerRadioComm('kills:10');
-
-          // Random pickup drop
-          if(Math.random() < 0.35){
-            const types = ['health','bone','shield'];
-            pickups.push({x:e.x, y:e.y, type:types[Math.floor(Math.random()*3)], life:300, bob:Math.random()*6});
-          }
-
-          enemies.splice(i,1);
-          continue;
-        }
-      }
-    }
-
-    // Melee collision with player — skip if player is attacking or enemy was just hit
-    if(dist < 22 && e.meleeCooldown <= 0 && !player.attacking && !enemyWasHit){
-      if(e.stuns && player.stunTimer <= 0){
-        player.stunTimer = 40;
-        sfxStun();
-        spawnDmg(player.x, player.y-30, 'STUN!', P.purple);
-      }
-      hurtPlayer();
-      e.meleeCooldown = 60; // 1 second cooldown per enemy
-
-      // Knockback enemy away from player after hit
-      const kbx = (e.x - player.x);
-      const kby = (e.y - player.y);
-      const kbd = Math.sqrt(kbx*kbx+kby*kby)||1;
-      e.x += (kbx/kbd) * 70;
-      e.y += (kby/kbd) * 30;
-      e.x = Math.max(10, Math.min(BASE_W-10, e.x));
-      e.y = Math.max(60, Math.min(GROUND_Y, e.y));
-    }
-  }
-
-  // Check wave complete
-  if(waveActive && enemies.length === 0 && waveSpawnQueue.length === 0){
-    waveClearDelay++;
-    if(waveClearDelay > 40){
-      waveClearDelay = 0;
-      currentWave++;
-      startWave();
-    }
-  }
-
-  // Combo timer
-  if(comboTimer > 0){
-    comboTimer--;
-    if(comboTimer <= 0) comboCount = 0;
-  }
-}
-
-function drawEnemies(){
-  for(const e of enemies){
-    if(e.hitFlash > 0 && frame%2===0){
-      ctx.globalAlpha = 0.6;
-    }
-    drawEnemyCat(e.x, e.y, e.facing, e.animFrame, e.type);
-    ctx.globalAlpha = 1;
-
-    // HP bar (always show for enemies)
-    const bw = e.w;
-    SR(e.x-bw/2, e.y-e.h-8, bw, 4, P.redDark);
-    SR(e.x-bw/2, e.y-e.h-8, bw*(e.hp/e.maxHp), 4, P.red);
-    SR(e.x-bw/2, e.y-e.h-8, bw*(e.hp/e.maxHp), 2, P.lava);
-
-    // Warning indicator when enemy is close and about to attack
-    const dx = player.x - e.x, dy = player.y - e.y;
-    const dist = Math.sqrt(dx*dx+dy*dy);
-    if(dist < 60 && e.meleeCooldown <= 0){
-      ctx.fillStyle = P.red;
-      ctx.font = `${S(10)}px 'Press Start 2P', monospace`;
-      ctx.textAlign = 'center';
-      ctx.fillText('!', S(e.x), S(e.y - e.h - 14));
-      ctx.textAlign = 'left';
-    }
-
-    // Off-screen arrow indicators
-    if(e.x < 10){
-      SR(2, e.y-4, 8, 8, P.red);
-      SR(2, e.y-2, 4, 4, P.lava);
-    } else if(e.x > BASE_W-10){
-      SR(BASE_W-10, e.y-4, 8, 8, P.red);
-      SR(BASE_W-6, e.y-2, 4, 4, P.lava);
-    }
-  }
-}
-
-// ============================================================
-// PROJECTILE SYSTEM
-// ============================================================
-function updateProjectiles(){
-  for(let i=projectiles.length-1;i>=0;i--){
-    const p = projectiles[i];
-    p.x += p.vx; p.y += p.vy;
-    p.life--;
-    if(p.life<=0 || p.x<-20 || p.x>BASE_W+20 || p.y<-20 || p.y>BASE_H+20){
-      projectiles.splice(i,1); continue;
-    }
-    // Hit player
-    if(p.fromEnemy){
-      const dx = p.x - player.x, dy = p.y - (player.y-10);
-      if(Math.abs(dx)<14 && Math.abs(dy)<14){
-        hurtPlayer();
-        spawnHitParticles(p.x, p.y, P.red);
-        projectiles.splice(i,1);
-      }
-    }
-  }
-}
-
-function drawProjectiles(){
-  for(const p of projectiles){
-    drawProjectile(p.x, p.y, p.type);
-  }
-}
-
-// ============================================================
-// PICKUP SYSTEM
-// ============================================================
-let pickups = [];
-
-function updatePickups(){
-  for(let i=pickups.length-1;i>=0;i--){
-    const pk = pickups[i];
-    pk.life--;
-    pk.bob += 0.08;
-    if(pk.life <= 0){ pickups.splice(i,1); continue; }
-
-    // Collect
-    const dx = pk.x - player.x, dy = pk.y - player.y;
-    if(Math.abs(dx)<16 && Math.abs(dy)<16){
-      switch(pk.type){
-        case 'health': lives = Math.min(7, lives+1); spawnDmg(pk.x,pk.y-20,'+HP',P.red); break;
-        case 'bone':   score += 500; spawnDmg(pk.x,pk.y-20,'+500',P.yellow); break;
-        case 'shield': player.shieldTimer = 180; spawnDmg(pk.x,pk.y-20,'SHIELD',P.blue); break;
-      }
-      sfxPickup();
-      spawnParticles(pk.x, pk.y, 6, [P.yellow,P.cream], {speed:2, size:2});
-      pickups.splice(i,1);
-    }
-  }
-}
-
-function drawPickups(){
-  for(const pk of pickups){
-    // Blink when about to expire
-    if(pk.life < 60 && frame%6<3) continue;
-    drawPickup(pk.x, pk.y, pk.type, pk.bob);
-  }
-}
-
-// ============================================================
-// BOSS SYSTEM
-// ============================================================
-let boss = null;
-
-function initBoss(){
-  if(level === 3){
-    boss = {
-      type: 'colonelClaw', x: BASE_W + 40, y: GROUND_Y - 2,
-      hp: 20, maxHp: 20,
-      phase: 1, phaseTimer: 0,
-      animFrame: 0, animTimer: 0,
-      attackTimer: 60, attackPattern: 0, attackCount: 0, restTimer: 0,
-      hitFlash: 0, facing: -1, speed: 0.8,
-      active: false
-    };
-  } else {
-    boss = {
-      type: 'drWhiskers', x: BASE_W + 40, y: GROUND_Y - 2,
-      hp: 32, maxHp: 32,
-      phase: 1, phaseTimer: 0,
-      animFrame: 0, animTimer: 0,
-      attackTimer: 80, attackPattern: 0, attackCount: 0, restTimer: 0,
-      hitFlash: 0, facing: -1, speed: 0.6,
-      active: false
-    };
-  }
-}
-
-function updateBoss(){
-  if(!boss) return;
-
-  if(bossEntrance){
-    bossEntranceTimer--;
-    boss.x -= 1.5;
-    if(bossEntranceTimer <= 0){
-      bossEntrance = false;
-      boss.active = true;
-      boss.x = BASE_W - 100;
-    }
-    return;
-  }
-
-  if(!boss.active) return;
-
-  boss.animTimer++;
-  if(boss.animTimer > 8){ boss.animFrame++; boss.animTimer = 0; }
-  if(boss.hitFlash > 0) boss.hitFlash--;
-
-  // Movement
-  const dx = player.x - boss.x, dy = player.y - boss.y;
-  const dist = Math.sqrt(dx*dx+dy*dy)||1;
-  boss.facing = dx > 0 ? 1 : -1;
-
-  // Phase transitions
-  const hpPct = boss.hp / boss.maxHp;
-  boss.phase = hpPct > 0.6 ? 1 : hpPct > 0.3 ? 2 : 3;
-  const speedMult = boss.phase === 3 ? 1.5 : boss.phase === 2 ? 1.2 : 1;
-
-  // Rest/exhaustion after 3 attacks
-  if(boss.restTimer > 0){
-    boss.restTimer--;
-    // Boss is exhausted — don't move or attack, just breathe
-    if(frame % 20 === 0) spawnParticles(boss.x, boss.y - 40, 2, [P.gray, P.grayDark], {speed:0.5, size:2, upBias:1});
-    // Still vulnerable to melee
-    if(dist < 30){ hurtPlayer(); }
-  } else {
-
-  if(dist > 50){
-    boss.x += (dx/dist) * boss.speed * speedMult;
-    boss.y += (dy/dist) * boss.speed * speedMult * 0.3;
-  }
-  boss.y = Math.max(60, Math.min(GROUND_Y, boss.y));
-
-  // Attacks
-  boss.attackTimer--;
-  if(boss.attackTimer <= 0){
-    boss.attackPattern = (boss.attackPattern + 1) % 3;
-    boss.attackCount = (boss.attackCount || 0) + 1;
-    const rate = boss.phase === 3 ? 40 : boss.phase === 2 ? 55 : 70;
-    boss.attackTimer = rate;
-
-    // After 3 attacks, take a rest
-    if(boss.attackCount >= 3){
-      boss.attackCount = 0;
-      boss.restTimer = 180; // 3 seconds at 60fps
-      spawnDmg(boss.x, boss.y - 50, 'TIRED!', P.gray);
-    }
-
-    if(boss.type === 'colonelClaw'){
-      if(boss.attackPattern === 0){
-        // Slash
-        projectiles.push({
-          x: boss.x + boss.facing*30, y: boss.y - 20,
-          vx: boss.facing*4, vy: 0,
-          type: 'bossSlash', life: 30, damage: 1, fromEnemy: true
-        });
-        sfxBossHit();
-      } else {
-        // Charge
-        boss.x += boss.facing * 40;
-        shakeDur = 5;
-        sfxExplosion();
-        spawnExplosion(boss.x, boss.y - 20);
-      }
-    } else { // drWhiskers
-      if(boss.attackPattern === 0){
-        // Orb spread
-        for(let a=-1;a<=1;a++){
-          projectiles.push({
-            x: boss.x, y: boss.y - 20,
-            vx: boss.facing*3, vy: a*1.5,
-            type: 'bossOrb', life: 80, damage: 1, fromEnemy: true
-          });
-        }
-        sfxLaser();
-      } else if(boss.attackPattern === 1){
-        // EMP burst
-        sfxEmp();
-        shakeDur = 8;
-        spawnParticles(boss.x, boss.y-20, 20, [P.purple, P.blue, P.cream], {speed:4, size:4});
-        // Stun nearby player
-        if(dist < 80){
-          player.stunTimer = 30;
-          spawnDmg(player.x, player.y-30, 'EMP!', P.purple);
-        }
-      } else {
-        // Laser sweep
-        for(let i=0;i<5;i++){
-          projectiles.push({
-            x: boss.x + boss.facing*20, y: boss.y - 30 + i*12,
-            vx: boss.facing*5, vy: (i-2)*0.5,
-            type: 'laser', life: 60, damage: 1, fromEnemy: true
-          });
-        }
-        sfxLaser();
-      }
-    }
-  }
-
-  // Melee collision
-  if(dist < 30){ hurtPlayer(); }
-
-  } // end of non-rest block
-
-  // Check player attack
-  const atk = playerAttackHitbox();
-  if(atk && boss.hitFlash <= 0){
-    if(boss.x > atk.x-10 && boss.x < atk.x+atk.w+10 && boss.y-20 > atk.y && boss.y-20 < atk.y+atk.h){
-      boss.hp -= player.damage;
-      boss.hitFlash = 5;
-      sfxBossHit();
-      spawnHitParticles(boss.x, boss.y-20, P.orange);
-      spawnDmg(boss.x, boss.y-40, `-${player.damage}`, P.yellow);
-      shakeDur = 3;
-
-      // Phase taunt at HP thresholds
-      const hpPct = boss.hp / boss.maxHp;
-      const bossType = boss.type;
-      const dialogue = BOSS_DIALOGUE[bossType];
-      if(hpPct <= 0.66 && !bossPhaseTaunted[1] && dialogue.phaseTaunts[0]){
-        bossPhaseTaunted[1] = true;
-        radioComm = {speaker: dialogue.phaseTaunts[0].s, text: dialogue.phaseTaunts[0].t, timer: 150, maxTimer: 150, fade: 1};
-      }
-      if(hpPct <= 0.33 && !bossPhaseTaunted[2] && dialogue.phaseTaunts[1]){
-        bossPhaseTaunted[2] = true;
-        radioComm = {speaker: dialogue.phaseTaunts[1].s, text: dialogue.phaseTaunts[1].t, timer: 150, maxTimer: 150, fade: 1};
-      }
-
-      if(boss.hp <= 0){
-        // Boss defeated — show defeat dialogue
-        sfxBossDie();
-        spawnExplosion(boss.x, boss.y - 20);
-        spawnExplosion(boss.x-20, boss.y);
-        spawnExplosion(boss.x+20, boss.y-30);
-        score += bossType === 'colonelClaw' ? 5000 : 10000;
-        shakeDur = 20;
-        radioComm = null;
-        boss = null;
-
-        gameState = 'bossDefeat';
-        startBossDialogue(dialogue.defeat, null);
-      }
-    }
-  }
-}
-
-function drawBoss(){
-  if(!boss) return;
-  if(boss.hitFlash > 0 && frame%2===0) ctx.globalAlpha = 0.5;
-
-  if(boss.type === 'colonelClaw'){
-    drawColonelClaw(boss.x, boss.y, boss.animFrame, boss.hp, boss.maxHp);
-  } else {
-    drawDrWhiskers(boss.x, boss.y, boss.animFrame, boss.hp, boss.maxHp);
-  }
-  ctx.globalAlpha = 1;
-
-  // Boss HP bar at top - 32-bit styled with glow
-  const bw = 200;
-  const hpFill = bw*(boss.hp/boss.maxHp);
-  // Outer glow
-  ctx.globalAlpha = 0.15;
-  SR(BASE_W/2-bw/2-6, 26, bw+12, 16, P.red);
-  ctx.globalAlpha = 0.85;
-  // Border
-  SR(BASE_W/2-bw/2-3, 27, bw+6, 14, P.grayDark);
-  ctx.globalAlpha = 1;
-  SR(BASE_W/2-bw/2-1, 29, bw+2, 10, P.black);
-  // Fill with gradient
-  SRG(BASE_W/2-bw/2, 30, hpFill, 8, P.lava, P.redDark);
-  SR(BASE_W/2-bw/2, 30, hpFill, 2, P.lavaBright);     // top gleam
-  SR(BASE_W/2-bw/2, 36, hpFill, 2, P.redDeep);         // bottom shadow
-
-  // Boss name with shadow
-  ctx.textAlign = 'center';
-  drawText(boss.type === 'colonelClaw' ? 'COL. CLAW' : 'DR. WHISKERS', BASE_W/2, 26, P.yellow, 7);
-  ctx.textAlign = 'left';
-}
-
-// ============================================================
-// LEVEL INTRO SCREEN
-// ============================================================
-function startLevelIntro(lv){
-  level = lv;
-  gameState = 'levelIntro';
-  introTimer = 0;
-  introTextIndex = 0;
-  introCharIndex = 0;
-  introTickTimer = 0;
-}
-
-function updateLevelIntro(){
-  introTimer++;
-  // Typewriter effect for speaker-tagged lines
-  const intro = LEVEL_INTROS[Math.min(level-1, 4)];
-  introTickTimer++;
-  if(introTickTimer >= 2){
-    introTickTimer = 0;
-    if(introTextIndex < intro.lines.length){
-      const line = intro.lines[introTextIndex].t;
-      if(introCharIndex < line.length){
-        introCharIndex++;
-        if(introCharIndex % 3 === 0) playTone(800,'square',0.02,0.05);
-      } else {
-        introCharIndex = 0;
-        introTextIndex++;
-      }
-    }
-  }
-}
-
-// Speaker tag colors
-const SPEAKER_COLORS = {
-  HQ: '#00ddff', REX: '#44ff44', CLAW: '#ff4444', WHSK: '#cc44ff'
-};
-
-function drawLevelIntro(){
-  // Dark background with gradient
-  SRG(0, 0, BASE_W, BASE_H, '#080e08', '#030503');
-
-  const intro = LEVEL_INTROS[Math.min(level-1, 4)];
-
-  // Terminal border with glow
-  ctx.globalAlpha=0.1; SRC(18, 13, BASE_W-36, BASE_H-26, P.hudBright); ctx.globalAlpha=1;
-  SRC(20, 15, BASE_W-40, BASE_H-30, P.hudGreen);
-  SRC(22, 17, BASE_W-44, BASE_H-34, P.hudDark);
-
-  // Title with shadow
-  ctx.textAlign = 'center';
-  drawText(intro.title, BASE_W/2, 50, P.yellow, 11);
-
-  // Horizontal rule with gradient
-  SRG(60, 62, BASE_W-120, 2, P.hudDark, P.hudGreen, false);
-
-  // Terminal text with typewriter and shadow
-  ctx.textAlign = 'left';
-
-  for(let i = 0; i < intro.lines.length; i++){
-    const lineY = 85 + i * 20;
-    const entry = intro.lines[i];
-    const speakerTag = entry.s + ': ';
-    const speakerColor = SPEAKER_COLORS[entry.s] || P.hudBright;
-    const tagWidth = speakerTag.length * 7;
-
-    if(i < introTextIndex){
-      drawText(speakerTag, 50, lineY, speakerColor, 7);
-      drawText(entry.t, 50 + tagWidth, lineY, P.hudBright, 7);
-    } else if(i === introTextIndex){
-      // Draw full speaker tag first, then typewriter the text
-      drawText(speakerTag, 50, lineY, speakerColor, 7);
-      const partial = entry.t.substring(0, introCharIndex);
-      drawText(partial, 50 + tagWidth, lineY, P.hudBright, 7);
-      // Blinking cursor
-      if(frame % 20 < 10){
-        const cursorX = 50 + tagWidth + introCharIndex * 6;
-        ctx.globalAlpha=0.2; SR(cursorX-1, lineY-8, 7, 11, P.hudBright); ctx.globalAlpha=1;
-        SR(cursorX, lineY - 7, 5, 9, P.hudGreen);
-      }
-    }
-  }
-
-  // Draw Rex in corner
-  drawRex(BASE_W - 80, BASE_H - 80, -1, Math.floor(frame/15), 'idle', false);
-  ctx.textAlign = 'center';
-  drawText('SGT. REX', BASE_W-80, BASE_H-50, P.tanLight, 6);
-
-  // Continue prompt
-  if(introTextIndex >= intro.lines.length || introTimer > 300){
-    const deployColor = frame%30<15 ? P.yellow : P.hudBright;
-    ctx.textAlign = 'center';
-    drawText('PRESS ENTER TO DEPLOY', BASE_W/2, BASE_H - 30, deployColor, 8);
-  }
-
-  ctx.textAlign = 'left';
-}
-
-// ============================================================
-// LEVEL COMPLETE
-// ============================================================
-function levelComplete(){
-  gameState = 'levelComplete';
-  levelCompleteTimer = 180;
-  levelCompleteData = {
-    enemiesDefeated: currentWave * 5 + Math.floor(Math.random()*5),
-    bonusScore: level * 1000,
-    nextLevel: level + 1
-  };
-  score += levelCompleteData.bonusScore;
-  debriefIndex = 0; debriefCharIndex = 0; debriefTickTimer = 0;
-  sfxLevelUp();
-}
-
-function updateDebrief(){
-  const lines = LEVEL_DEBRIEFS[Math.min(level-1,4)];
-  debriefTickTimer++;
-  if(debriefTickTimer >= 2){
-    debriefTickTimer = 0;
-    if(debriefIndex < lines.length){
-      const line = lines[debriefIndex].t;
-      if(debriefCharIndex < line.length){
-        debriefCharIndex++;
-        if(debriefCharIndex % 3 === 0) playTone(600,'square',0.02,0.04);
-      } else {
-        debriefCharIndex = 0;
-        debriefIndex++;
-      }
-    }
-  }
-}
-
-function drawLevelComplete(){
-  ctx.globalAlpha = 0.85;
-  SRG(0,0,BASE_W,BASE_H,P.black,'#080a08');
-  ctx.globalAlpha = 1;
-
-  updateDebrief();
-
-  // Mission complete header with glow
-  ctx.textAlign = 'center';
-  ctx.globalAlpha = 0.15;
-  ctx.fillStyle = P.orange;
-  ctx.font = `${S(16)}px 'Press Start 2P', monospace`;
-  ctx.fillText('MISSION COMPLETE!', S(BASE_W/2), S(65));
-  ctx.globalAlpha = 1;
-  drawText('MISSION COMPLETE!', BASE_W/2, 65, P.yellow, 14);
-
-  // Speaker-tagged debrief with typewriter
-  const lines = LEVEL_DEBRIEFS[Math.min(level-1,4)];
-  ctx.textAlign = 'left';
-  for(let i = 0; i < lines.length; i++){
-    const lineY = 105 + i * 20;
-    const entry = lines[i];
-    const speakerTag = entry.s + ': ';
-    const speakerColor = SPEAKER_COLORS[entry.s] || P.hudBright;
-    const tagWidth = speakerTag.length * 6;
-
-    if(i < debriefIndex){
-      drawText(speakerTag, 60, lineY, speakerColor, 6);
-      drawText(entry.t, 60 + tagWidth, lineY, P.hudBright, 6);
-    } else if(i === debriefIndex){
-      drawText(speakerTag, 60, lineY, speakerColor, 6);
-      drawText(entry.t.substring(0, debriefCharIndex), 60 + tagWidth, lineY, P.hudBright, 6);
-    }
-  }
-
-  // Score
-  ctx.textAlign = 'center';
-  const scoreY = 115 + lines.length * 20;
-  drawText(`BONUS: +${levelCompleteData.bonusScore}`, BASE_W/2, scoreY + 10, P.cream, 8);
-  drawText(`TOTAL SCORE: ${score}`, BASE_W/2, scoreY + 35, P.cream, 8);
-
-  // Rex celebrating
-  drawRex(BASE_W/2, BASE_H-80, 1, Math.floor(frame/8), 'attack', false);
-  SRG(0, BASE_H-55, BASE_W, 55, P.milMid, P.milGreen);
-  SR(0, BASE_H-55, BASE_W, 2, P.milLight);
-
-  if(levelCompleteTimer < 120){
-    const contColor = frame%30<15 ? P.yellow : P.cream;
-    ctx.textAlign = 'center';
-    drawText('PRESS ENTER TO CONTINUE', BASE_W/2, BASE_H - 25, contColor, 8);
-  }
-  ctx.textAlign = 'left';
-}
-
-// ============================================================
-// CODE SCREEN (decode puzzle)
-// ============================================================
-let codeAnswer = '', codeTimer = 0, codeScramble = '', codeHint = '';
-
-function showCodeScreen(){
-  const words4 = [
-    'BARK','WOOF','BITE','HOWL','PAWS','BONE','FANG','TAIL','PACK','MUTT',
-    'PELT','HUNT','CLAW','YELP','WHIP','LICK','PLAY','CHEW','ROMP','DASH',
-    'BOLT','LEAP','TROT','WAGS','RUFF','SHED','COAT','PANT','YAPS','DIGS',
-    'NIPS','SITS','STAY','ROLL','CATS','FOES','DOGS','SPOT','DUKE','KING',
-    'BEAR','WOLF','FURY','GRIT','SNAP','SNARL','HIDE','LURK','RAID','CREW'
-  ];
-  const words6 = [
-    'GROWLS','KENNEL','MUZZLE','BARKED','CANINE','PAWING','BITING','CHASED',
-    'SNARLS','HEELED','COLLAR','HOWLED','PATROL','SNIFFS','WOOFED','LICKED',
-    'POUNCE','DASHED','ROLLED','TRICKS','WANDER','GUARDS','RESCUE','TREATS',
-    'JUMPED','SPRUNG','BITTEN','CLAWED','YELPED','CHEWED','SNOUTS','HUNTER',
-    'FIERCE','FRENZY','ATTACK','COMBAT','STRIKE','RAIDER','BANDIT','AMBUSH',
-    'SNIPER','DEPLOY','BREACH','RECOIL','EVADER','DECOYS','BRAWLS','COBRAS',
-    'VAULTS','SHIELD'
-  ];
-  const words = level === 4 ? words6 : words4;
-  codeAnswer = words[Math.floor(Math.random()*words.length)];
-  codeScramble = codeAnswer.split('').sort(()=>Math.random()-0.5).join('');
-  codeHint = `${codeAnswer.length} LETTERS - UNSCRAMBLE`;
-  codeTimer = 60 * 60; // 60 seconds at 60fps
-
-  document.getElementById('codePanel').style.display = 'block';
-  document.getElementById('codeField').value = '';
-  document.getElementById('codeMsg').textContent = '';
-  document.getElementById('scrambleDisplay').textContent = codeScramble;
-  document.getElementById('decodeHint').textContent = codeHint;
-  document.getElementById('timerDisplay').textContent = 'T-60';
-  document.getElementById('codeField').focus();
-}
-
-function submitCode(){
-  const val = document.getElementById('codeField').value.toUpperCase().trim();
-  if(val === codeAnswer){
-    document.getElementById('codePanel').style.display = 'none';
-    sfxLevelUp();
-    score += 2000;
-    levelComplete();
-  } else {
-    document.getElementById('codeMsg').textContent = 'WRONG CODE - TRY AGAIN';
-    document.getElementById('codeField').value = '';
-    sfxHit();
-    shakeDur = 5;
-  }
-}
-// Make submitCode global for button onclick
-window.submitCode = submitCode;
-
-function updateCodeScreen(){
-  codeTimer--;
-  const sec = Math.max(0, Math.ceil(codeTimer/60));
-  document.getElementById('timerDisplay').textContent = `T-${sec}`;
-  // Scramble animation
-  if(frame%20===0){
-    const display = codeScramble.split('');
-    const idx = Math.floor(Math.random()*display.length);
-    const idx2 = Math.floor(Math.random()*display.length);
-    [display[idx], display[idx2]] = [display[idx2], display[idx]];
-    document.getElementById('scrambleDisplay').textContent = display.join('');
-  }
-  if(codeTimer <= 0){
-    document.getElementById('codePanel').style.display = 'none';
-    hurtPlayer();
-    hurtPlayer();
-    if(gameState !== 'gameOver') levelComplete();
-  }
-}
-
-// ============================================================
-// OPENING PROLOGUE
-// ============================================================
-function startPrologue(){
-  gameState = 'prologue';
-  prologueIndex = 0; prologueCharIndex = 0; prologueTickTimer = 0; prologueTimer = 0;
-}
-
-function updatePrologue(){
-  prologueTimer++;
-  prologueTickTimer++;
-  if(prologueTickTimer >= 3){
-    prologueTickTimer = 0;
-    if(prologueIndex < PROLOGUE_LINES.length){
-      const line = PROLOGUE_LINES[prologueIndex];
-      if(line === ''){
-        prologueIndex++;
-      } else if(prologueCharIndex < line.length){
-        prologueCharIndex++;
-        if(prologueCharIndex % 2 === 0) playTone(600,'square',0.02,0.03);
-      } else {
-        prologueCharIndex = 0;
-        prologueIndex++;
-      }
-    }
-  }
-}
-
-function drawPrologue(){
-  SRG(0, 0, BASE_W, BASE_H, '#020204', '#000000');
-
-  // Starfield
-  for(const s of bgStars){
-    const tw = Math.sin(frame*0.02+s.b*6)*0.3+0.5;
-    ctx.globalAlpha = tw;
-    SR(s.x, s.y, s.s*0.7, s.s*0.7, P.cream);
-  }
-  ctx.globalAlpha = 1;
-
-  // Prologue text with typewriter
-  ctx.textAlign = 'center';
-  let drawLine = 0;
-  for(let i = 0; i < PROLOGUE_LINES.length; i++){
-    const lineY = 50 + drawLine * 18;
-    if(PROLOGUE_LINES[i] === ''){
-      if(i < prologueIndex) drawLine++;
-      continue;
-    }
-    if(i < prologueIndex){
-      drawText(PROLOGUE_LINES[i], BASE_W/2, lineY, P.hudBright, 7);
-      drawLine++;
-    } else if(i === prologueIndex){
-      const partial = PROLOGUE_LINES[i].substring(0, prologueCharIndex);
-      drawText(partial, BASE_W/2, lineY, P.hudBright, 7);
-      drawLine++;
-    }
-  }
-
-  // Skip prompt
-  if(prologueTimer > 60){
-    const skipColor = frame%40<20 ? P.gray : P.grayDark;
-    drawText('PRESS ENTER TO CONTINUE', BASE_W/2, BASE_H - 25, skipColor, 7);
-  }
-
-  // Auto-advance when done
-  if(prologueIndex >= PROLOGUE_LINES.length && prologueTimer > 180){
-    const goColor = frame%30<15 ? P.yellow : P.cream;
-    drawText('PRESS ENTER TO BEGIN', BASE_W/2, BASE_H - 25, goColor, 8);
-  }
-
-  ctx.textAlign = 'left';
-}
-
-// ============================================================
-// RADIO COMMS (in-gameplay HUD messages)
-// ============================================================
-function triggerRadioComm(trigger){
-  if(radioComm) return; // don't interrupt active comm
-  const key = level + ':' + trigger;
-  if(radioTriggered[key]) return;
-  const comms = RADIO_COMMS[Math.min(level-1,4)];
-  const comm = comms.find(c => c.trigger === trigger);
-  if(comm){
-    radioTriggered[key] = true;
-    radioComm = {speaker: comm.s, text: comm.t, timer: comm.dur, maxTimer: comm.dur, fade: 1};
-  }
-}
-
-function updateRadioComm(){
-  if(!radioComm) return;
-  radioComm.timer--;
-  if(radioComm.timer < 30) radioComm.fade = radioComm.timer / 30;
-  if(radioComm.timer <= 0) radioComm = null;
-}
-
-function drawRadioComm(){
-  if(!radioComm) return;
-  ctx.globalAlpha = Math.min(1, radioComm.fade) * 0.85;
-  // Background box
-  SR(8, 8, 280, 36, 'rgba(0,0,0,0.8)');
-  SRC(8, 8, 280, 36, SPEAKER_COLORS[radioComm.speaker] || P.hudGreen);
-  ctx.globalAlpha = Math.min(1, radioComm.fade);
-  // Speaker portrait (colored square)
-  SR(12, 12, 28, 28, SPEAKER_COLORS[radioComm.speaker] || P.hudGreen);
-  SR(14, 14, 24, 24, '#111111');
-  drawText(radioComm.speaker, 26, 32, SPEAKER_COLORS[radioComm.speaker] || P.hudGreen, 5);
-  // Message text
-  drawText(radioComm.text, 46, 22, P.cream, 5);
-  ctx.globalAlpha = 1;
-}
-
-// ============================================================
-// BOSS DIALOGUE (intro, taunts, defeat)
-// ============================================================
-function startBossDialogue(lines, onComplete){
-  bossDialogueLines = lines;
-  bossDialogueIndex = 0;
-  bossDialogueCharIndex = 0;
-  bossDialogueTickTimer = 0;
-  bossDialogueTimer = 0;
-  bossDialogueOnComplete = onComplete || null;
-}
-let bossDialogueOnComplete = null;
-
-function updateBossDialogue(){
-  if(!bossDialogueLines.length) return false;
-  bossDialogueTimer++;
-  bossDialogueTickTimer++;
-  if(bossDialogueTickTimer >= 2){
-    bossDialogueTickTimer = 0;
-    if(bossDialogueIndex < bossDialogueLines.length){
-      const line = bossDialogueLines[bossDialogueIndex].t;
-      if(bossDialogueCharIndex < line.length){
-        bossDialogueCharIndex++;
-        if(bossDialogueCharIndex % 3 === 0) playTone(500,'square',0.02,0.04);
-      } else {
-        // Pause before next line
-        bossDialogueCharIndex = 0;
-        bossDialogueIndex++;
-      }
-    }
-  }
-  // Advance on Enter if all text shown
-  if(bossDialogueIndex >= bossDialogueLines.length){
-    if(justPressed['Enter'] || justPressed['NumpadEnter'] || bossDialogueTimer > 300){
-      bossDialogueLines = [];
-      if(bossDialogueOnComplete) bossDialogueOnComplete();
-      return false;
-    }
-  }
-  // Skip to end on Space
-  if(justPressed['Space'] && bossDialogueIndex < bossDialogueLines.length){
-    bossDialogueIndex = bossDialogueLines.length;
-  }
-  return true; // dialogue still active
-}
-
-function drawBossDialogue(){
-  if(!bossDialogueLines.length) return;
-  // Dark overlay
-  ctx.globalAlpha = 0.6;
-  SR(0, BASE_H/2 - 60, BASE_W, 120, '#000000');
-  ctx.globalAlpha = 1;
-  SRC(10, BASE_H/2 - 58, BASE_W-20, 116, P.hudGreen);
-
-  ctx.textAlign = 'left';
-  const startY = BASE_H/2 - 45;
-  const maxVisible = 4; // show last 4 lines
-  const firstVisible = Math.max(0, Math.min(bossDialogueIndex, bossDialogueLines.length) - maxVisible + (bossDialogueIndex < bossDialogueLines.length ? 1 : 0));
-
-  for(let i = firstVisible; i < bossDialogueLines.length; i++){
-    const drawIdx = i - firstVisible;
-    if(drawIdx >= maxVisible) break;
-    const lineY = startY + drawIdx * 22;
-    const entry = bossDialogueLines[i];
-    const speakerTag = entry.s + ': ';
-    const speakerColor = SPEAKER_COLORS[entry.s] || P.cream;
-    const tagWidth = speakerTag.length * 7;
-
-    if(i < bossDialogueIndex){
-      drawText(speakerTag, 30, lineY, speakerColor, 7);
-      drawText(entry.t, 30 + tagWidth, lineY, P.cream, 7);
-    } else if(i === bossDialogueIndex){
-      drawText(speakerTag, 30, lineY, speakerColor, 7);
-      drawText(entry.t.substring(0, bossDialogueCharIndex), 30 + tagWidth, lineY, P.cream, 7);
-    }
-  }
-
-  // Continue prompt
-  if(bossDialogueIndex >= bossDialogueLines.length){
-    ctx.textAlign = 'center';
-    const goColor = frame%30<15 ? P.yellow : P.cream;
-    drawText('PRESS ENTER', BASE_W/2, startY + maxVisible * 22, goColor, 6);
-  }
-  ctx.textAlign = 'left';
-}
-
-// ============================================================
-// MENU SCREEN
-// ============================================================
-function drawMenu(){
-  // Background with gradient sky
-  SRG(0,0,BASE_W,BASE_H,P.bgDark,'#060810');
-  for(const s of bgStars){
-    const tw = Math.sin(frame*0.03+s.b*8)*0.4+0.6;
-    ctx.globalAlpha = tw;
-    if(s.s > 1.5){ ctx.globalAlpha=tw*0.15; SC(s.x+s.s/2,s.y+s.s/2,s.s+1,P.creamLight); ctx.globalAlpha=tw; }
-    SR(s.x, s.y, s.s, s.s, P.cream);
-  }
-  ctx.globalAlpha = 1;
-
-  // Ground with gradient
-  SRG(0, BASE_H-80, BASE_W, 80, P.milMid, P.milGreen);
-  SR(0, BASE_H-80, BASE_W, 3, P.milLight);
-  SR(0, BASE_H-80, BASE_W, 1, P.milBright);          // bright edge
-
-  // Title glow
-  ctx.textAlign = 'center';
-  ctx.globalAlpha = 0.2;
-  ctx.fillStyle = P.orange;
-  ctx.font = `${S(26)}px 'Press Start 2P', monospace`;
-  ctx.fillText('BARK OPS', S(BASE_W/2), S(120));
-  ctx.globalAlpha = 1;
-  // Title with shadow
-  drawText('BARK OPS', BASE_W/2, 120, P.yellow, 24);
-
-  // Subtitle with shadow
-  drawText('OPERATION WHISKER DOWN', BASE_W/2, 155, P.orangeLight, 10);
-
-  // Rex standing on menu
-  drawRex(BASE_W/2, BASE_H-82, 1, Math.floor(frame/12), 'idle', false);
-
-  // Enemy cats on sides
-  drawEnemyCat(100, BASE_H-82, 1, Math.floor(frame/10), 'cat');
-  drawEnemyCat(200, BASE_H-82, 1, Math.floor(frame/10), 'commando');
-  drawEnemyCat(BASE_W-100, BASE_H-82, -1, Math.floor(frame/10), 'laserCat');
-  drawEnemyCat(BASE_W-200, BASE_H-82, -1, Math.floor(frame/10), 'armoredCat');
-
-  // Start prompt with glow
-  menuBlink += 0.05;
-  const promptAlpha = Math.sin(menuBlink)*0.4+0.6;
-  ctx.globalAlpha = promptAlpha * 0.15;
-  ctx.fillStyle = P.cream;
-  ctx.font = `${S(11)}px 'Press Start 2P', monospace`;
-  ctx.fillText('PRESS ENTER TO START', S(BASE_W/2), S(280));
-  ctx.globalAlpha = promptAlpha;
-  drawText('PRESS ENTER TO START', BASE_W/2, 280, P.cream, 10);
-  ctx.globalAlpha = 1;
-
-  // Controls with shadow
-  drawText('ARROWS/WASD: MOVE', BASE_W/2, 340, P.gray, 7);
-  drawText('SPACE/Z: ATTACK', BASE_W/2, 360, P.gray, 7);
-  drawText('SHIFT: DODGE', BASE_W/2, 380, P.gray, 7);
-
-  ctx.textAlign = 'left';
-}
-
-// ============================================================
-// GAME OVER / VICTORY
-// ============================================================
-function drawGameOver(){
-  ctx.globalAlpha = 0.85;
-  SRG(0,0,BASE_W,BASE_H,P.black,'#100808');
-  ctx.globalAlpha = 1;
-
-  ctx.textAlign = 'center';
-  // Title glow
-  ctx.globalAlpha = 0.15;
-  ctx.fillStyle = P.red;
-  ctx.font = `${S(22)}px 'Press Start 2P', monospace`;
-  ctx.fillText('GAME OVER', S(BASE_W/2), S(BASE_H/2-50));
-  ctx.globalAlpha = 1;
-  drawText('GAME OVER', BASE_W/2, BASE_H/2-50, P.red, 20);
-
-  // Random last transmission
-  if(gameOverMsg){
-    const speakerColor = SPEAKER_COLORS[gameOverMsg.s] || P.hudBright;
-    drawText(gameOverMsg.s + ':', BASE_W/2, BASE_H/2, speakerColor, 7);
-    drawText(gameOverMsg.t, BASE_W/2, BASE_H/2 + 18, P.hudBright, 7);
-  }
-
-  drawText(`FINAL SCORE: ${score}`, BASE_W/2, BASE_H/2+50, P.cream, 10);
-
-  const retryColor = frame%30<15 ? P.yellow : P.cream;
-  drawText('PRESS ENTER TO RETRY', BASE_W/2, BASE_H/2+90, retryColor, 8);
-  ctx.textAlign = 'left';
-}
-
-const VICTORY_EPILOGUE = [
-  'THE SATELLITE IS DESTROYED.',
-  'DR. WHISKERS HAS BEEN CAPTURED.',
-  '',
-  'WITH THE FELINE ARMY IN DISARRAY,',
-  'PEACE RETURNS TO THE WORLD.',
-  '',
-  'SGT. REX WAS AWARDED THE GOLDEN',
-  'BONE OF VALOR FOR HIS BRAVERY.',
-  '',
-  'HE NOW ENJOYS RETIREMENT WITH',
-  'UNLIMITED BELLY RUBS AND TREATS.',
-  '',
-  '...BUT RUMORS OF A NEW THREAT',
-  'ARE ALREADY SURFACING.',
-  '',
-  'THE WORLD MAY NEED REX AGAIN.'
-];
-
-function drawVictory(){
-  // Epic victory screen with gradient
-  SRG(0,0,BASE_W,BASE_H,'#080810',P.black);
-
-  // Fireworks
-  if(frame%15===0){
-    const fx = 100 + Math.random()*(BASE_W-200);
-    const fy = 50 + Math.random()*150;
-    spawnParticles(fx, fy, 16, [P.yellow, P.orange, P.red, P.cream, P.blue], {speed:4, size:3, gravity:0.1, shape:'circle'});
-  }
-
-  victoryTimer++;
-  ctx.textAlign = 'center';
-
-  if(victoryPhase === 0){
-    // Phase 0: VICTORY header + score
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = P.orange;
-    ctx.font = `${S(22)}px 'Press Start 2P', monospace`;
-    ctx.fillText('VICTORY!', S(BASE_W/2), S(80));
-    ctx.globalAlpha = 1;
-    drawText('VICTORY!', BASE_W/2, 80, P.yellow, 20);
-
-    drawText('THE FELINE MENACE IS DEFEATED!', BASE_W/2, 130, P.cream, 8);
-    drawText('GOOD BOY, REX!', BASE_W/2, 155, P.cream, 8);
-    drawText(`FINAL SCORE: ${score}`, BASE_W/2, 200, P.orangeLight, 12);
-
-    drawRex(BASE_W/2, BASE_H-82, 1, Math.floor(frame/6), 'attack', false);
-
-    if(victoryTimer > 120){
-      const goColor = frame%30<15 ? P.yellow : P.cream;
-      drawText('PRESS ENTER FOR EPILOGUE', BASE_W/2, BASE_H-35, goColor, 8);
-    }
-  } else {
-    // Phase 1: Scrolling epilogue
-    const scrollY = Math.max(0, 400 - victoryTimer * 0.4);
-    let drawLine = 0;
-    for(let i = 0; i < VICTORY_EPILOGUE.length; i++){
-      if(VICTORY_EPILOGUE[i] === ''){
-        drawLine++;
-        continue;
-      }
-      const lineY = scrollY + drawLine * 20 + 50;
-      if(lineY > -20 && lineY < BASE_H + 20){
-        ctx.globalAlpha = lineY < 40 ? lineY/40 : (lineY > BASE_H-60 ? (BASE_H-lineY)/60 : 1);
-        drawText(VICTORY_EPILOGUE[i], BASE_W/2, lineY, P.hudBright, 7);
-      }
-      drawLine++;
-    }
-    ctx.globalAlpha = 1;
-
-    if(victoryTimer > 500){
-      drawText(`FINAL SCORE: ${score}`, BASE_W/2, BASE_H - 70, P.orangeLight, 10);
-      const goColor = frame%30<15 ? P.yellow : P.cream;
-      drawText('PRESS ENTER TO PLAY AGAIN', BASE_W/2, BASE_H-35, goColor, 8);
-    }
-  }
-
-  ctx.textAlign = 'left';
-}
-
-// ============================================================
-// CRT / SCANLINE / RETRO EFFECTS
-// ============================================================
-function drawCRTEffect(){
-  // SNES/Genesis-era scanlines: visible dark gap every 2 pixel rows
-  const scanStep = Math.max(2, Math.floor(S(2)));
-  const scanH = Math.max(1, Math.floor(S(1)));
-  ctx.fillStyle = 'rgba(0,0,0,0.16)';
-  for(let y=0; y<canvas.height; y+=scanStep){
-    ctx.fillRect(0, y, canvas.width, scanH);
-  }
-  // Secondary faint line between scanlines (phosphor gap)
-  ctx.fillStyle = 'rgba(0,0,0,0.05)';
-  for(let y=scanH; y<canvas.height; y+=scanStep){
-    ctx.fillRect(0, y, canvas.width, scanH);
-  }
-
-  // RGB phosphor column tinting (CRT sub-pixel structure)
-  const cw = Math.max(1, Math.round(S(1)));
-  ctx.globalAlpha = 0.022;
-  for(let x=0; x<canvas.width; x+=cw*3){
-    ctx.fillStyle = '#ff3030'; ctx.fillRect(x,        0, cw, canvas.height);
-    ctx.fillStyle = '#30ff30'; ctx.fillRect(x+cw,     0, cw, canvas.height);
-    ctx.fillStyle = '#3030ff'; ctx.fillRect(x+cw*2,   0, cw, canvas.height);
-  }
-  ctx.globalAlpha = 1;
-
-  // Vignette — stronger corners like a real CRT TV
-  const grd = ctx.createRadialGradient(
-    canvas.width/2, canvas.height/2, canvas.height*0.28,
-    canvas.width/2, canvas.height/2, canvas.height*0.78
-  );
-  grd.addColorStop(0, 'rgba(0,0,0,0)');
-  grd.addColorStop(0.65, 'rgba(0,0,0,0.08)');
-  grd.addColorStop(1, 'rgba(0,0,0,0.48)');
-  ctx.fillStyle = grd;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Warm color wash (32-bit era phosphor warmth)
-  ctx.globalAlpha = 0.025;
-  ctx.fillStyle = '#ffe8c0';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.globalAlpha = 1;
-
-  // Phosphor breathing — subtle brightness pulse like a CRT warming up
-  const breathe = 0.004 + Math.sin(frame * 0.007) * 0.002;
-  ctx.globalAlpha = breathe;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.globalAlpha = 1;
-
-  // Rare color aberration (chromatic aberration)
-  if(frame%180 < 2){
-    ctx.globalAlpha = 0.03;
-    ctx.fillStyle = '#ff0000';
-    ctx.fillRect(2, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#0000ff';
-    ctx.fillRect(-2, 0, canvas.width, canvas.height);
-    ctx.globalAlpha = 1;
-  }
-
-  // Rare horizontal glitch line
-  if(Math.random() < 0.005){
-    const gy = Math.random() * canvas.height;
-    const gh = 1 + Math.random()*2;
-    ctx.drawImage(canvas, 0, gy, canvas.width, gh, Math.random()*4-2, gy, canvas.width, gh);
-  }
-}
-
-// Screen border (CRT bezel) — SNES/Genesis style
-function drawCRTBezel(){
-  // Phosphor inner glow along top/bottom edges (screen bloom)
-  const topGlow = ctx.createLinearGradient(0, 0, 0, canvas.height*0.06);
-  topGlow.addColorStop(0, 'rgba(40,255,80,0.06)');
-  topGlow.addColorStop(1, 'rgba(40,255,80,0)');
-  ctx.fillStyle = topGlow;
-  ctx.fillRect(0, 0, canvas.width, canvas.height*0.06);
-
-  const botGlow = ctx.createLinearGradient(0, canvas.height*0.94, 0, canvas.height);
-  botGlow.addColorStop(0, 'rgba(40,255,80,0)');
-  botGlow.addColorStop(1, 'rgba(40,255,80,0.06)');
-  ctx.fillStyle = botGlow;
-  ctx.fillRect(0, canvas.height*0.94, canvas.width, canvas.height*0.06);
-
-  // Left/right edge phosphor bloom
-  const leftGlow = ctx.createLinearGradient(0, 0, canvas.width*0.04, 0);
-  leftGlow.addColorStop(0, 'rgba(40,255,80,0.05)');
-  leftGlow.addColorStop(1, 'rgba(40,255,80,0)');
-  ctx.fillStyle = leftGlow;
-  ctx.fillRect(0, 0, canvas.width*0.04, canvas.height);
-
-  const rightGlow = ctx.createLinearGradient(canvas.width*0.96, 0, canvas.width, 0);
-  rightGlow.addColorStop(0, 'rgba(40,255,80,0)');
-  rightGlow.addColorStop(1, 'rgba(40,255,80,0.05)');
-  ctx.fillStyle = rightGlow;
-  ctx.fillRect(canvas.width*0.96, 0, canvas.width*0.04, canvas.height);
-
-  // Screen border
-  const bw = 3;
-  ctx.strokeStyle = '#1a3a1a';
-  ctx.lineWidth = S(bw);
-  ctx.strokeRect(S(bw/2), S(bw/2), S(BASE_W-bw), S(BASE_H-bw));
-
-  // Corner darkening (CRT curved-corner shadow)
-  const cs = S(28);
-  ctx.fillStyle = 'rgba(0,0,0,0.42)';
-  ctx.fillRect(0, 0, cs, cs);
-  ctx.fillRect(canvas.width-cs, 0, cs, cs);
-  ctx.fillRect(0, canvas.height-cs, cs, cs);
-  ctx.fillRect(canvas.width-cs, canvas.height-cs, cs, cs);
-
-  // Extra corner diagonal shadow for curvature illusion
-  ctx.fillStyle = 'rgba(0,0,0,0.18)';
-  ctx.fillRect(0, 0, Math.floor(cs*0.6), Math.floor(cs*0.6));
-  ctx.fillRect(canvas.width-Math.floor(cs*0.6), 0, Math.floor(cs*0.6), Math.floor(cs*0.6));
-  ctx.fillRect(0, canvas.height-Math.floor(cs*0.6), Math.floor(cs*0.6), Math.floor(cs*0.6));
-  ctx.fillRect(canvas.width-Math.floor(cs*0.6), canvas.height-Math.floor(cs*0.6), Math.floor(cs*0.6), Math.floor(cs*0.6));
-}
-
-// Screen transition (pixelated wipe)
-let transitionTimer = 0, transitionCallback = null;
-function startTransition(cb){
-  transitionTimer = 30;
-  transitionCallback = cb;
-}
-function updateTransition(){
-  if(transitionTimer > 0){
-    transitionTimer--;
-    if(transitionTimer === 15 && transitionCallback){
-      transitionCallback();
-      transitionCallback = null;
-    }
-  }
-}
-function drawTransition(){
-  if(transitionTimer <= 0) return;
-  const progress = transitionTimer > 15 ? (30-transitionTimer)/15 : transitionTimer/15;
-  const blockSize = 8;
-  ctx.fillStyle = P.black;
-  for(let x=0; x<BASE_W; x+=blockSize){
-    for(let y=0; y<BASE_H; y+=blockSize){
-      if(Math.random() < progress){
-        SR(x, y, blockSize, blockSize, P.black);
-      }
-    }
-  }
-}
-
-// ============================================================
-// SCREEN SHAKE
-// ============================================================
-function updateShake(){
-  if(shakeDur > 0){
-    shakeX = (Math.random()-0.5)*shakeDur*0.8;
-    shakeY = (Math.random()-0.5)*shakeDur*0.8;
-    shakeDur--;
-  } else {
-    shakeX = 0; shakeY = 0;
-  }
-}
-
-// ============================================================
-// MAIN GAME LOOP
-// ============================================================
-function gameLoop(){
-  frame++;
-  updateShake();
-  updateTransition();
-
-  // Clear canvas every frame to prevent ghosting
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  ctx.save();
-  ctx.translate(S(shakeX), S(shakeY));
-
-  switch(gameState){
-    case 'menu':
-      drawMenu();
-      if((justPressed['Enter'] || justPressed['NumpadEnter']) && transitionTimer <= 0){
-        sfxMenu();
-        score = 0; lives = 7; level = 1;
-        if(!hasSeenPrologue){
-          hasSeenPrologue = true;
-          startTransition(()=>{ startPrologue(); });
-        } else {
-          startTransition(()=>{ startLevelIntro(1); });
-        }
-      }
-      break;
-
-    case 'prologue':
-      updatePrologue();
-      drawPrologue();
-      if((justPressed['Enter']||justPressed['NumpadEnter']) && (prologueIndex >= PROLOGUE_LINES.length || prologueTimer > 60)){
-        sfxMenu();
-        startTransition(()=>{ startLevelIntro(1); });
-      }
-      if(justPressed['Space'] && prologueIndex < PROLOGUE_LINES.length){
-        prologueIndex = PROLOGUE_LINES.length;
-      }
-      break;
-
-    case 'levelIntro':
-      updateLevelIntro();
-      drawLevelIntro();
-      if((justPressed['Enter']||justPressed['NumpadEnter']) && (introTextIndex >= LEVEL_INTROS[Math.min(level-1,4)].lines.length || introTimer > 300)){
-        sfxMenu();
-        levelKillCount = 0;
-        radioTriggered = {};
-        startTransition(()=>{ startLevel(level); gameState = 'playing'; triggerRadioComm('start'); });
-      }
-      if(justPressed['Space'] && introTextIndex < LEVEL_INTROS[Math.min(level-1,4)].lines.length){
-        introTextIndex = LEVEL_INTROS[Math.min(level-1,4)].lines.length;
-      }
-      break;
-
-    case 'playing':
-      drawBackground();
-      updatePlayer();
-      updateEnemies();
-      updateProjectiles();
-      updatePickups();
-      drawPickups();
-      drawProjectiles();
-      drawEnemies();
-      drawPlayer();
-      updateParticles();
-      drawParticles();
-      updateDmgNumbers();
-      drawDmgNumbers();
-      drawHUD();
-      updateRadioComm();
-      drawRadioComm();
-      if(levelBannerTimer > 0) levelBannerTimer--;
-      break;
-
-    case 'boss':
-      drawBackground();
-      updatePlayer();
-      updateBoss();
-      updateProjectiles();
-      updatePickups();
-      drawPickups();
-      drawProjectiles();
-      drawBoss();
-      drawPlayer();
-      updateParticles();
-      drawParticles();
-      updateDmgNumbers();
-      drawDmgNumbers();
-      drawHUD();
-      updateRadioComm();
-      drawRadioComm();
-      break;
-
-    case 'bossIntro':
-      drawBackground();
-      if(boss && bossEntrance) updateBoss(); // run entrance walk-in during dialogue
-      drawPlayer();
-      if(boss) drawBoss();
-      drawHUD();
-      if(!updateBossDialogue()){
-        // Dialogue done, start the actual boss fight
-        if(boss){
-          bossEntrance = false;
-          boss.active = true;
-          boss.x = BASE_W - 100;
-        }
-        gameState = 'boss';
-      }
-      drawBossDialogue();
-      break;
-
-    case 'bossDefeat':
-      drawBackground();
-      drawPlayer();
-      updateParticles();
-      drawParticles();
-      drawHUD();
-      if(!updateBossDialogue()){
-        // Defeat dialogue done
-        if(level >= 5){
-          victoryPhase = 0; victoryTimer = 0;
-          gameState = 'victory';
-        } else {
-          levelComplete();
-        }
-      }
-      drawBossDialogue();
-      break;
-
-    case 'codeScreen':
-      drawBackground();
-      drawPlayer();
-      drawHUD();
-      updateCodeScreen();
-      break;
-
-    case 'levelComplete':
-      drawBackground();
-      drawPlayer();
-      drawLevelComplete();
-      updateParticles();
-      drawParticles();
-      levelCompleteTimer--;
-      if((justPressed['Enter']||justPressed['NumpadEnter']) && levelCompleteTimer < 120 && transitionTimer <= 0){
-        sfxMenu();
-        const nl = levelCompleteData.nextLevel;
-        if(nl > 5){
-          victoryPhase = 0; victoryTimer = 0;
-          gameState = 'victory';
-        } else {
-          startTransition(()=>{ startLevelIntro(nl); });
-        }
-      }
-      break;
-
-    case 'gameOver':
-      drawGameOver();
-      updateParticles();
-      drawParticles();
-      if((justPressed['Enter']||justPressed['NumpadEnter']) && transitionTimer <= 0){
-        sfxMenu();
-        startTransition(()=>{ score=0; lives=5; level=1; gameState='menu'; });
-      }
-      break;
-
-    case 'victory':
-      drawVictory();
-      updateParticles();
-      drawParticles();
-      if((justPressed['Enter']||justPressed['NumpadEnter']) && transitionTimer <= 0){
-        if(victoryPhase === 0 && victoryTimer > 120){
-          victoryPhase = 1; victoryTimer = 0;
-        } else if(victoryPhase === 1 && victoryTimer > 500){
-          sfxMenu();
-          startTransition(()=>{ score=0; lives=5; level=1; gameState='menu'; });
-        }
-      }
-      break;
-  }
-
-  drawTransition();
-  ctx.restore();
-
-  // CRT effects are drawn without shake transform
-  drawCRTEffect();
-  drawCRTBezel();
-
-  clearJustPressed();
-  requestAnimationFrame(gameLoop);
-}
-
-// Start the game
-requestAnimationFrame(gameLoop);
-
-</script>
+  <div class="container">
+    <header>
+      <a href="/" class="logo">Good Boy <span>Rex</span></a>
+      <nav>
+        <a href="#games">Games</a>
+        <a href="#blog">Blog</a>
+        <a href="#about">About</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>Games, <span class="accent">dev logs</span> & dog ops.</h1>
+        <p>Indie game developer. Retro vibes, canvas experiments, and the occasional mission briefing.</p>
+      </section>
+
+      <section id="games">
+        <div class="section-header">
+          <h2>Game Showcase</h2>
+          <p>Playable in-browser games. No install required.</p>
+        </div>
+
+        <div class="games-grid">
+          <a href="games/bark-ops/" class="game-card">
+            <div class="game-card-thumb">
+              <div class="placeholder">BARK OPS</div>
+            </div>
+            <div class="game-card-body">
+              <h3>BARK OPS: Operation Whisker DOWN</h3>
+              <div class="meta">SNES/Genesis style · Canvas · 2025</div>
+              <p>32-bit era action game. Rex goes undercover to take down a cat syndicate. Run, shoot, decode, survive.</p>
+              <span class="play-badge">Play now</span>
+            </div>
+          </a>
+
+          <!-- Placeholder for future games -->
+          <div class="game-card" style="opacity: 0.6; pointer-events: none;">
+            <div class="game-card-thumb">
+              <div class="placeholder">Coming soon</div>
+            </div>
+            <div class="game-card-body">
+              <h3>Next Game</h3>
+              <div class="meta">TBA</div>
+              <p>More games on the way. Stay tuned.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="blog">
+        <div class="section-header">
+          <h2>Blog</h2>
+          <p>Dev logs, postmortems, and random thoughts.</p>
+        </div>
+
+        <div class="blog-preview">
+          <h3>Latest</h3>
+          <p>Blog posts coming soon. I'll share behind-the-scenes on game development, technical deep dives, and lessons learned.</p>
+          <a href="#">View all posts →</a>
+        </div>
+      </section>
+
+      <section id="about">
+        <div class="section-header">
+          <h2>About</h2>
+          <p>Who's behind Good Boy Rex?</p>
+        </div>
+        <p style="color: var(--text-muted); max-width: 560px;">
+          Indie game dev building retro-style browser games. Focused on single-file canvas experiments, pixel art aesthetics, and games that run anywhere.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <p>© 2025 Good Boy Rex · Built with care</p>
+    </footer>
+  </div>
 </body>
 </html>
-
