@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REX ROLLER — Good Boy on Wheels</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#1a1a2e;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:'Press Start 2P',monospace;}
+#backLink{position:fixed;top:12px;left:12px;z-index:9999;color:#e94560;font-size:8px;text-decoration:none;opacity:0.8;transition:opacity 0.2s;}
+#backLink:hover{opacity:1;color:#ff6b6b;}
+#gameCanvas{display:block;image-rendering:pixelated;border-radius:8px;box-shadow:0 0 40px rgba(233,69,96,0.2),0 0 80px rgba(162,155,254,0.15);}
+</style>
+</head>
+<body>
+<a id="backLink" href="../../index.html">← PORTFOLIO</a>
+<canvas id="gameCanvas"></canvas>
+<script>
+'use strict';
+// ============================================================
+// REX ROLLER — Rex the dog skates to defeat Clawzilla!
+// ============================================================
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const P = {
+  sky: '#16213e', skyLight: '#1a2744', ground: '#0f3460', groundLine: '#e94560',
+  road: '#1a1a2e', roadLine: '#533483',
+  milGreen: '#4a6a3a', milDark: '#2a4a1a', milMid: '#6a8a4a', milLight: '#8aaa5a',
+  tan: '#d4b87a', tanLight: '#e8d4a0', tanDark: '#9a7428', skin: '#e8c090', skinDark: '#c89868',
+  yellow: '#f0cc48', cream: '#f4f0e0', black: '#080810', red: '#d04030', redDark: '#a02820',
+  wheel: '#2d2d44', wheelHighlight: '#4a4a6a',
+  cone: '#ffd93d', coneDark: '#e6c235', crack: '#533483', puddle: '#16213e',
+  star: '#ffd93d', ramp: '#533483', rampEdge: '#a2a2ff',
+  catGray: '#8898a0', catDark: '#586878', catLight: '#a8b8c0', claw: '#e94560',
+  text: '#eaeaea', textMuted: '#a2a2ff'
+};
+
+const BASE_W = 800, BASE_H = 450;
+let SCALE = 1;
+function resizeCanvas(){
+  const aspect = BASE_W/BASE_H;
+  let w = window.innerWidth, h = window.innerHeight;
+  if(w/h > aspect){ w = Math.floor(h*aspect); } else { h = Math.floor(w/aspect); }
+  canvas.width = w; canvas.height = h;
+  SCALE = w/BASE_W;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function S(v){ return v*SCALE; }
+function SR(x,y,w,h,color){ ctx.fillStyle=color; ctx.fillRect(S(x),S(y),S(w),S(h)); }
+
+// --- GAME STATE ---
+let gameState = 'prologue'; // prologue, briefing, playing, bossIntro, boss, bossDefeat, victory, gameOver
+let score = 0, distance = 0, highScore = 0, lives = 3, zone = 1;
+let frame = 0, scrollX = 0, groundY = BASE_H - 80;
+let shakeX = 0, shakeY = 0, shakeDur = 0;
+
+// --- STORY ---
+const PROLOGUE = [
+  'REX ROLLER',
+  '',
+  'THE CATS HAVE TAKEN OVER',
+  'THE BOARDWALK SKATE PARK.',
+  '',
+  'THEIR LEADER: CLAWZILLA.',
+  'A CAT WITH RETRACTABLE CLAWS',
+  'THAT EXTEND TO SLASH.',
+  '',
+  'REX STRAPS ON HIS WHEELS.',
+  'TIME TO TAKE BACK THE PARK.',
+  '',
+  'OBJECTIVE: SKATE TO THE TOWER.',
+  'DEFEAT CLAWZILLA. GOOD BOY.'
+];
+
+const ZONE_BRIEFINGS = [
+  { title: 'ZONE 1: BOARDWALK', lines: [
+    {s:'HQ', t:'REX, YOURE CLEARED FOR SKATE OPS.'},
+    {s:'REX', t:'THE BOARDWALK. MY FAVORITE ROUTE.'},
+    {s:'HQ', t:'WATCH FOR CONES AND CRACKS.'},
+    {s:'HQ', t:'DOWN TO DUCK. SPACE TO JUMP.'},
+    {s:'REX', t:'LETS ROLL.'}
+  ]},
+  { title: 'ZONE 2: CAT PATROL', lines: [
+    {s:'HQ', t:'CATS AHEAD. THEY SKATE TOO.'},
+    {s:'REX', t:'THEY HAVE CLAWS?'},
+    {s:'HQ', t:'RETRACTABLE. THEY EXTEND TO ATTACK.'},
+    {s:'HQ', t:'JUMP OR DUCK WHEN THEY STRIKE.'},
+    {s:'REX', t:'NOTED. WHEELS UP.'}
+  ]},
+  { title: 'ZONE 3: THE TOWER', lines: [
+    {s:'HQ', t:'CLAWZILLA IS AT THE TOWER.'},
+    {s:'REX', t:'THE BOSS.'},
+    {s:'HQ', t:'HIS CLAWS ARE DEADLY. DODGE.'},
+    {s:'HQ', t:'HIT HIM WHEN HE RESTING.'},
+    {s:'REX', t:'GOOD BOY VS CLAW. LETS GO.'}
+  ]}
+];
+
+// --- PLAYER (REX) ---
+const player = {
+  x: 120, y: groundY - 32, vy: 0,
+  onGround: true, ducking: false,
+  wheelRot: 0, animFrame: 0,
+  trickReady: false, trickActive: 0,
+  invincible: 0, facing: 1
+};
+
+// --- OBSTACLES, ENEMIES, BOSS ---
+let obstacles = [], collectibles = [], ramps = [];
+let clawCats = [];
+let boss = null;
+let nextObstacleAt = 200, nextRampAt = 400, nextCatAt = 600;
+let zoneCompleteTimer = 0;
+
+// --- PROLOGUE / BRIEFING ---
+let storyIndex = 0, storyCharIndex = 0, storyTick = 0;
+let storyLines = [], storyTitle = '';
+
+// --- INPUT ---
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// Click/tap to advance (for when keyboard focus is lost)
+function advanceInput(){
+  return keys['Space'] || keys['ArrowUp'] || keys['KeyW'];
+}
+window.addEventListener('click', () => { keys['Space'] = true; });
+window.addEventListener('touchstart', () => { keys['Space'] = true; }, { passive: true });
+
+// --- AUDIO ---
+let audioCtx = null;
+function getAudio(){
+  if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  return audioCtx;
+}
+function playTone(freq, type, dur, vol){
+  const ac = getAudio(); if(!ac) return;
+  try {
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain); gain.connect(ac.destination);
+    osc.type = type||'square';
+    osc.frequency.setValueAtTime(freq, ac.currentTime);
+    gain.gain.setValueAtTime(vol||0.12, ac.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+dur);
+    osc.start(ac.currentTime);
+    osc.stop(ac.currentTime+dur+0.05);
+  } catch(e){}
+}
+function sfxJump(){ playTone(440,'square',0.08,0.15); playTone(660,'square',0.06,0.1); }
+function sfxLand(){ playTone(200,'sawtooth',0.08,0.12); }
+function sfxCollect(){ playTone(880,'square',0.06,0.15); playTone(1100,'square',0.06,0.12); }
+function sfxHit(){ playTone(150,'sawtooth',0.15,0.2); }
+function sfxCrash(){ playTone(120,'sawtooth',0.35,0.25); playTone(70,'sawtooth',0.5,0.2); }
+function sfxTrick(){ playTone(523,'square',0.1,0.12); playTone(659,'square',0.1,0.1); }
+function sfxMenu(){ playTone(330,'square',0.1,0.12); }
+function sfxBossHit(){ playTone(110,'sawtooth',0.12,0.25); }
+function sfxBossDie(){ playTone(200,'sawtooth',0.2,0.2); playTone(120,'sawtooth',0.3,0.15); }
+
+// --- REX SPRITE (from BARK OPS, on skates) ---
+function drawSpr(ox, oy, data, pal, ps){
+  ps = ps || 2;
+  for(let r = 0; r < data.length; r++){
+    for(let c = 0; c < data[r].length; c++){
+      if(data[r][c] === '.') continue;
+      const col = pal[data[r][c]];
+      if(col) SR(ox + c*ps, oy + r*ps, ps, ps, col);
+    }
+  }
+}
+const rexP = { G:P.milGreen, g:P.milDark, Y:P.yellow, M:P.milMid, T:P.tan, L:P.tanLight, t:P.tanDark, d:P.tanDeep, s:P.skinDark, B:P.black, W:P.white, R:P.redDark, C:P.cream };
+const rexBody = [
+  '.....GGGg.......','....gGGGGY......','..dTTTTTTTTd....','..sTTTTTTTTs....',
+  '...TWBTTBWTt....','....TTTBTTT.....','....TTTTTTTT....','.LLTTGGGGTTLL...',
+  '..LTTGMgMTTL....','..LTTGGGGGTL....','....tGGGGt......','....tt..tt......',
+  '....tt..tt......','................','................','................'
+];
+function drawRexSkating(px, py, wheelAngle, tricking){
+  ctx.save();
+  const ox = px - 16, oy = py - 32;
+  if(tricking){ ctx.translate(S(px), S(py)); ctx.rotate(frame * 0.35); ctx.translate(S(-px), S(-py)); }
+  ctx.globalAlpha = 0.2; SR(ox+4, oy+30, 24, 4, P.black); ctx.globalAlpha = 1;
+  drawSpr(ox, oy, rexBody, rexP, 2);
+  const tw = Math.round(Math.sin(frame*0.12)*2)*2;
+  SR(ox+26, oy+14+tw, 4, 4, P.tan);
+  const lo = [0,2,0,-2][Math.floor(frame/8)%4];
+  if(lo !== 0){ SR(ox+8, oy+24+lo, 4, 4, P.tanDark); SR(ox+16, oy+24-lo, 4, 4, P.tanDark); }
+  // Skate wheels
+  ctx.save();
+  ctx.translate(S(px-10), S(py+2));
+  ctx.rotate(wheelAngle);
+  ctx.fillStyle = P.wheel;
+  ctx.fillRect(S(-4), S(-5), S(8), S(10));
+  ctx.fillStyle = P.wheelHighlight;
+  ctx.fillRect(S(-2), S(-3), S(4), S(6));
+  ctx.restore();
+  ctx.save();
+  ctx.translate(S(px+10), S(py+2));
+  ctx.rotate(wheelAngle);
+  ctx.fillStyle = P.wheel;
+  ctx.fillRect(S(-4), S(-5), S(8), S(10));
+  ctx.fillStyle = P.wheelHighlight;
+  ctx.fillRect(S(-2), S(-3), S(4), S(6));
+  ctx.restore();
+  ctx.restore();
+}
+
+// --- CLAW CAT (retractable claws) ---
+function drawClawCat(sx, sy, clawsOut, animFrame){
+  ctx.fillStyle = P.catDark;
+  ctx.fillRect(S(sx), S(sy-20), S(24), S(28));
+  ctx.fillStyle = P.catGray;
+  ctx.fillRect(S(sx+2), S(sy-18), S(20), S(24));
+  ctx.fillStyle = P.catLight;
+  ctx.fillRect(S(sx+6), S(sy-24), S(12), S(10));
+  ctx.fillStyle = P.black;
+  ctx.fillRect(S(sx+8), S(sy-22), S(2), S(2));
+  ctx.fillRect(S(sx+14), S(sy-22), S(2), S(2));
+  // Retractable claws - extend forward when attacking
+  if(clawsOut){
+    ctx.fillStyle = P.claw;
+    ctx.fillRect(S(sx+20), S(sy-8), S(12), S(4));
+    ctx.fillRect(S(sx+20), S(sy-2), S(12), S(4));
+    ctx.fillRect(S(sx+20), S(sy+4), S(12), S(4));
+  }
+  // Skate
+  ctx.fillStyle = P.wheel;
+  ctx.fillRect(S(sx+2), S(sy+6), S(8), S(6));
+  ctx.fillRect(S(sx+14), S(sy+6), S(8), S(6));
+}
+
+// --- BOSS: CLAWZILLA ---
+function drawClawzilla(sx, sy, clawsOut, hp, maxHp){
+  const h = 50;
+  ctx.fillStyle = P.catDark;
+  ctx.fillRect(S(sx), S(sy-h), S(48), S(h));
+  ctx.fillStyle = P.catGray;
+  ctx.fillRect(S(sx+4), S(sy-h+4), S(40), S(h-8));
+  ctx.fillStyle = P.claw;
+  ctx.fillRect(S(sx+4), S(sy-h+8), S(8), S(8));
+  ctx.fillRect(S(sx+36), S(sy-h+8), S(8), S(8));
+  ctx.fillStyle = P.black;
+  ctx.fillRect(S(sx+14), S(sy-h+12), S(4), S(4));
+  ctx.fillRect(S(sx+30), S(sy-h+12), S(4), S(4));
+  // RETRACTABLE CLAWS - big and scary
+  if(clawsOut){
+    ctx.fillStyle = P.claw;
+    ctx.fillRect(S(sx+44), S(sy-h+10), S(20), S(8));
+    ctx.fillRect(S(sx+44), S(sy-h+2), S(20), S(8));
+    ctx.fillRect(S(sx+44), S(sy-h-6), S(20), S(8));
+    ctx.fillRect(S(sx-16), S(sy-h+10), S(20), S(8));
+    ctx.fillRect(S(sx-16), S(sy-h+2), S(20), S(8));
+    ctx.fillRect(S(sx-16), S(sy-h-6), S(20), S(8));
+  }
+  // HP bar
+  const bw = 120;
+  ctx.fillStyle = P.catDark;
+  ctx.fillRect(S(sx+24-bw/2), S(sy-h-12), S(bw), S(8));
+  ctx.fillStyle = P.claw;
+  ctx.fillRect(S(sx+24-bw/2), S(sy-h-12), S(bw*(hp/maxHp)), S(8));
+}
+
+// --- COLLISION ---
+function collides(ax,ay,aw,ah, bx,by,bw,bh){
+  return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
+}
+
+// --- SPAWN ---
+function spawnObstacle(x){
+  const types = zone >= 2 ? ['cone','cone','crack','puddle','crack'] : ['cone','cone','crack','puddle'];
+  const t = types[Math.floor(Math.random()*types.length)];
+  obstacles.push({ x, type: t, w: t==='cone'?24:t==='crack'?40:50, h: t==='cone'?28:12 });
+}
+function spawnRamp(x){ ramps.push({ x, w: 80, h: 25 }); }
+function spawnCollectible(x){
+  if(Math.random() < 0.5) collectibles.push({ x, y: groundY - 55 - Math.random()*25, w: 18, h: 18, anim: 0 });
+}
+function spawnClawCat(x){
+  clawCats.push({
+    x, y: groundY - 28, vx: -4, animFrame: 0,
+    clawsOut: false, clawTimer: 0, clawCooldown: 120 + Math.random()*60
+  });
+}
+
+// --- HURT / LIVES ---
+function hurtPlayer(){
+  if(player.invincible > 0) return;
+  lives--;
+  player.invincible = 120; // 2 sec
+  shakeDur = 15;
+  sfxHit();
+  if(lives <= 0) gameOver();
+}
+
+function gameOver(){
+  gameState = 'gameOver';
+  sfxCrash();
+}
+
+// --- MAIN UPDATE ---
+function update(){
+  frame++;
+  if(shakeDur > 0){ shakeX = (Math.random()-0.5)*4; shakeY = (Math.random()-0.5)*4; shakeDur--; }
+  else { shakeX = 0; shakeY = 0; }
+
+  // Prologue
+  if(gameState === 'prologue'){
+    storyTick++;
+    if(storyTick >= 4){
+      storyTick = 0;
+      if(storyIndex < PROLOGUE.length){
+        const line = PROLOGUE[storyIndex];
+        if(line === '') storyIndex++;
+        else if(storyCharIndex < line.length) storyCharIndex++;
+        else { storyCharIndex = 0; storyIndex++; }
+      } else if(advanceInput()){
+        gameState = 'briefing';
+        storyIndex = 0; storyCharIndex = 0;
+        storyTitle = ZONE_BRIEFINGS[zone-1].title;
+        storyLines = ZONE_BRIEFINGS[zone-1].lines;
+        keys['Space'] = false; keys['ArrowUp'] = false; keys['KeyW'] = false;
+      }
+    }
+    return;
+  }
+
+  // Briefing
+  if(gameState === 'briefing'){
+    storyTick++;
+    if(storyTick >= 3){
+      storyTick = 0;
+      if(storyIndex < storyLines.length){
+        const line = storyLines[storyIndex];
+        if(storyCharIndex < line.t.length) storyCharIndex++;
+        else { storyCharIndex = 0; storyIndex++; }
+      } else if(advanceInput()){
+        startZone();
+        keys['Space'] = false; keys['ArrowUp'] = false; keys['KeyW'] = false;
+      }
+    }
+    return;
+  }
+
+  // Game over / Victory
+  if(gameState === 'gameOver' || gameState === 'victory'){
+    if(advanceInput()){
+      zone = 1; lives = 3;
+      score = 0; distance = 0; scrollX = 0;
+      keys['Space'] = false; keys['ArrowUp'] = false; keys['KeyW'] = false;
+      if(gameState === 'victory'){
+        gameState = 'prologue';
+        storyIndex = 0; storyCharIndex = 0;
+      } else {
+        gameState = 'briefing';
+        storyIndex = 0; storyCharIndex = 0;
+        storyTitle = ZONE_BRIEFINGS[0].title;
+        storyLines = ZONE_BRIEFINGS[0].lines;
+      }
+    }
+    return;
+  }
+
+  // Boss defeat
+  if(gameState === 'bossDefeat'){
+    zoneCompleteTimer--;
+    if(zoneCompleteTimer <= 0) gameState = 'victory';
+    return;
+  }
+
+  // Boss intro (CLAWZILLA approaches)
+  if(gameState === 'bossIntro'){
+    zoneCompleteTimer--;
+    if(zoneCompleteTimer <= 0){
+      gameState = 'boss';
+      player.x = 120;
+      boss = { x: BASE_W + 60, y: groundY - 40, hp: 20, maxHp: 20, clawsOut: false, clawTimer: 0, restTimer: 0, attackCooldown: 0 };
+    }
+    return;
+  }
+
+  // Boss fight
+  if(gameState === 'boss'){
+    updateBoss();
+    return;
+  }
+
+  // --- PLAYING ---
+  const speed = 5 + zone * 0.8 + Math.floor(distance/800)*0.3;
+  scrollX += speed;
+  distance = scrollX;
+
+  const GRAVITY = 0.4, JUMP_FORCE = -10.5;
+
+  // Duck (Down) - can't jump while ducking
+  player.ducking = keys['ArrowDown'] || keys['KeyS'];
+  if(player.ducking) player.y = groundY - 20;
+
+  if(player.onGround && !player.ducking){
+    player.wheelRot += speed * 0.12;
+    player.y = groundY - 32;
+    if(keys['Space'] || keys['ArrowUp'] || keys['KeyW']){
+      player.vy = JUMP_FORCE;
+      player.onGround = false;
+      player.trickReady = true;
+      sfxJump();
+    }
+  } else if(!player.ducking){
+    player.vy += GRAVITY;
+    player.y += player.vy;
+    if(player.trickReady && keys['Space']){
+      player.trickReady = false;
+      player.trickActive = 22;
+      score += 75;
+      sfxTrick();
+    }
+    if(player.y >= groundY - 32){
+      player.y = groundY - 32;
+      player.vy = 0;
+      player.onGround = true;
+      sfxLand();
+    }
+  }
+
+  if(player.trickActive > 0) player.trickActive--;
+  if(player.invincible > 0) player.invincible--;
+
+  // Spawn
+  if(scrollX >= nextObstacleAt){
+    nextObstacleAt = scrollX + 350 + Math.random()*150;
+    spawnObstacle(scrollX + BASE_W + 40);
+    spawnCollectible(scrollX + BASE_W + 80 + Math.random()*120);
+  }
+  if(scrollX >= nextRampAt){
+    nextRampAt = scrollX + 500 + Math.random()*200;
+    spawnRamp(scrollX + BASE_W + 60);
+  }
+  if(zone >= 2 && scrollX >= nextCatAt){
+    nextCatAt = scrollX + 450 + Math.random()*250;
+    spawnClawCat(scrollX + BASE_W + 50);
+  }
+
+  // Zone transition to boss
+  if(zone === 3 && scrollX >= 1500){
+    gameState = 'bossIntro';
+    zoneCompleteTimer = 90;
+    obstacles = []; collectibles = []; ramps = []; clawCats = [];
+    return;
+  }
+
+  // Zone transition (1->2 at 400m, 2->3 at 900m)
+  if(zone === 1 && distance >= 400){ zone = 2; nextCatAt = scrollX + 150; }
+  if(zone === 2 && distance >= 900){ zone = 3; }
+
+  // Obstacles
+  for(let i = obstacles.length - 1; i >= 0; i--){
+    const o = obstacles[i];
+    const sx = o.x - scrollX;
+    if(sx < -60){ obstacles.splice(i,1); continue; }
+    if(player.invincible <= 0 && player.onGround && !player.ducking){
+      const py = groundY - 32, oy = groundY - (o.type==='cone'?o.h:6);
+      if(collides(player.x, py, 24, 32, sx, oy, o.w, o.h)){
+        hurtPlayer();
+        obstacles.splice(i,1);
+      }
+    }
+    if(player.ducking && o.type === 'cone' && collides(player.x, groundY-20, 24, 20, sx, groundY-o.h, o.w, o.h)){
+      if(player.invincible <= 0){ hurtPlayer(); obstacles.splice(i,1); }
+    }
+  }
+
+  // Ramps
+  for(const r of ramps){
+    const sx = r.x - scrollX;
+    if(sx < -100) continue;
+    if(player.onGround && !player.ducking && player.x > sx+15 && player.x < sx+r.w-15 && player.y >= groundY-38){
+      player.vy = -8.5;
+      player.onGround = false;
+      score += 100;
+      sfxJump();
+    }
+  }
+
+  // Claw cats
+  for(let i = clawCats.length - 1; i >= 0; i--){
+    const c = clawCats[i];
+    c.x += c.vx;
+    c.animFrame++;
+    c.clawTimer++;
+    if(c.clawTimer >= c.clawCooldown){
+      c.clawsOut = true;
+      if(c.clawTimer >= c.clawCooldown + 45){
+        c.clawsOut = false;
+        c.clawTimer = 0;
+        c.clawCooldown = 100 + Math.random()*80;
+      }
+    }
+    const sx = c.x - scrollX;
+    if(sx < -80){ clawCats.splice(i,1); continue; }
+    if(sx < player.x + 80 && sx > player.x - 40){
+      if(c.clawsOut && player.invincible <= 0){
+        const hitbox = player.ducking ? {y: groundY-20, h: 20 } : { y: groundY-32, h: 32 };
+        if(collides(sx, c.y-20, 36, 28, player.x, hitbox.y, 24, hitbox.h)){
+          hurtPlayer();
+        }
+      }
+    }
+  }
+
+  // Collectibles
+  for(let i = collectibles.length - 1; i >= 0; i--){
+    const c = collectibles[i];
+    c.anim += 0.08;
+    const sx = c.x - scrollX;
+    if(sx < -25){ collectibles.splice(i,1); continue; }
+    if(collides(player.x, player.y, 24, 32, sx, c.y, c.w, c.h)){
+      score += 150;
+      collectibles.splice(i,1);
+      sfxCollect();
+    }
+  }
+
+  score += Math.floor(speed * 0.4);
+  if(score > highScore) highScore = score;
+}
+
+function updateBoss(){
+  const b = boss;
+  const BOSS_X = BASE_W - 120;
+  // Player movement during boss (faster retreat when claws out)
+  const moveSpeed = b.clawsOut ? 7 : 5;
+  if(keys['ArrowLeft'] || keys['KeyA']) player.x = Math.max(80, player.x - moveSpeed);
+  if(keys['ArrowRight'] || keys['KeyD']) player.x = Math.min(BOSS_X - 70, player.x + moveSpeed);
+
+  b.restTimer--;
+  if(b.restTimer <= 0){
+    b.clawTimer++;
+    if(b.clawTimer < 50) b.clawsOut = false;
+    else if(b.clawTimer < 110) b.clawsOut = true;
+    else {
+      b.clawsOut = false;
+      b.clawTimer = 0;
+      b.restTimer = 100;
+    }
+  }
+
+  if(b.clawsOut && player.invincible <= 0 && player.x > BOSS_X - 90){
+    hurtPlayer();
+  }
+  if(b.attackCooldown > 0) b.attackCooldown--;
+  if(!b.clawsOut && b.attackCooldown <= 0 && player.x > BOSS_X - 80 && player.x < BOSS_X + 40){
+    b.hp -= 2;
+    b.attackCooldown = 25;
+    sfxBossHit();
+    shakeDur = 5;
+    score += 200;
+    player.x = Math.max(80, player.x - 25);
+    if(b.hp <= 0){
+      gameState = 'bossDefeat';
+      zoneCompleteTimer = 180;
+      sfxBossDie();
+      boss = null;
+    }
+  }
+}
+
+function startZone(){
+  gameState = 'playing';
+  obstacles = []; collectibles = []; ramps = []; clawCats = [];
+  nextObstacleAt = scrollX + 150;
+  nextRampAt = scrollX + 300;
+  nextCatAt = scrollX + (zone >= 2 ? 200 : 99999);
+  player.y = groundY - 32;
+  player.vy = 0;
+  player.onGround = true;
+  player.ducking = false;
+  player.trickReady = false;
+  player.trickActive = 0;
+  sfxMenu();
+}
+
+// --- DRAW ---
+function draw(){
+  ctx.save();
+  ctx.translate(shakeX, shakeY);
+  ctx.fillStyle = P.sky;
+  ctx.fillRect(0, 0, BASE_W, BASE_H);
+  const grd = ctx.createLinearGradient(0, 0, 0, BASE_H);
+  grd.addColorStop(0, P.skyLight);
+  grd.addColorStop(1, P.sky);
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, BASE_W, BASE_H);
+
+  for(let i = 0; i < 25; i++){
+    const bx = (i * 100 - scrollX * 0.25) % (BASE_W + 120) - 40;
+    const h = 50 + (i % 5) * 35;
+    ctx.fillStyle = P.road;
+    ctx.fillRect(bx, BASE_H - h - 80, 45, h);
+    ctx.fillStyle = P.roadLine;
+    ctx.fillRect(bx + 4, BASE_H - h - 72, 37, 6);
+  }
+
+  SR(0, groundY, BASE_W + 150, BASE_H - groundY, P.ground);
+  for(let i = 0; i < 40; i++){
+    const lx = (i * 50 - scrollX * 0.4) % (BASE_W + 60) - 15;
+    ctx.fillStyle = P.roadLine;
+    ctx.fillRect(lx, groundY + 18, 35, 3);
+  }
+  ctx.fillStyle = P.groundLine;
+  ctx.fillRect(0, groundY, BASE_W + 150, 4);
+
+  // Ramps
+  for(const r of ramps){
+    const sx = r.x - scrollX;
+    if(sx > -80 && sx < BASE_W + 60){
+      ctx.fillStyle = P.ramp;
+      ctx.beginPath();
+      ctx.moveTo(S(sx), S(groundY));
+      ctx.lineTo(S(sx + r.w), S(groundY - r.h));
+      ctx.lineTo(S(sx + r.w + 12), S(groundY));
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = P.rampEdge;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  // Obstacles
+  for(const o of obstacles){
+    const sx = o.x - scrollX;
+    if(sx < -50 || sx > BASE_W + 50) continue;
+    if(o.type === 'cone'){
+      ctx.fillStyle = P.coneDark;
+      ctx.beginPath();
+      ctx.moveTo(S(sx + o.w/2), S(groundY - o.h));
+      ctx.lineTo(S(sx), S(groundY));
+      ctx.lineTo(S(sx + o.w), S(groundY));
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = P.cone;
+      ctx.fillRect(S(sx + 4), S(groundY - o.h + 4), S(o.w - 8), S(6));
+    } else if(o.type === 'crack'){
+      ctx.fillStyle = P.crack;
+      ctx.fillRect(S(sx), S(groundY - 2), S(o.w), S(8));
+    } else {
+      ctx.fillStyle = P.puddle;
+      ctx.beginPath();
+      ctx.ellipse(S(sx + o.w/2), S(groundY - o.h/2), S(o.w/2), S(o.h/2), 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // Claw cats
+  for(const c of clawCats){
+    const sx = c.x - scrollX;
+    if(sx > -60 && sx < BASE_W + 60) drawClawCat(sx, c.y, c.clawsOut, c.animFrame);
+  }
+
+  // Collectibles
+  for(const c of collectibles){
+    const sx = c.x - scrollX;
+    if(sx < -25 || sx > BASE_W + 30) continue;
+    const pulse = 0.8 + Math.sin(c.anim) * 0.2;
+    ctx.globalAlpha = 0.8 + Math.sin(c.anim * 2) * 0.2;
+    ctx.fillStyle = P.star;
+    ctx.beginPath();
+    for(let i = 0; i < 5; i++){
+      const a = (i * Math.PI * 2 / 5) - Math.PI/2;
+      ctx.lineTo(S(sx + 9 + Math.cos(a) * 7 * pulse), S(c.y + 9 + Math.sin(a) * 7 * pulse));
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Rex
+  if(gameState === 'playing' || gameState === 'boss' || gameState === 'bossIntro'){
+    const py = player.ducking ? groundY - 20 : player.y;
+    const drawY = player.ducking ? groundY - 20 : player.y;
+    if(player.ducking){
+      ctx.save();
+      ctx.translate(S(player.x), S(groundY - 10));
+      ctx.scale(1.2, 0.5);
+      ctx.translate(S(-player.x), S(-(groundY - 10)));
+      drawRexSkating(player.x, groundY - 32, 0, false);
+      ctx.restore();
+    } else {
+      drawRexSkating(player.x, drawY, player.wheelRot * Math.PI/180, player.trickActive > 0);
+    }
+    if(player.invincible > 0 && frame % 4 < 2){
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(S(player.x - 18), S(py - 38), S(36), S(42));
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Boss intro banner
+  if(gameState === 'bossIntro'){
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(0, 0, BASE_W, BASE_H);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = P.claw;
+    ctx.font = `${S(14)}px 'Press Start 2P', monospace`;
+    ctx.fillText('CLAWZILLA!', BASE_W/2, BASE_H/2 - 20);
+    ctx.fillStyle = P.textMuted;
+    ctx.font = `${S(7)}px 'Press Start 2P', monospace`;
+    ctx.fillText('RETRACTABLE CLAWS. DODGE THEN ATTACK!', BASE_W/2, BASE_H/2 + 20);
+    ctx.textAlign = 'left';
+  }
+
+  // Boss (fixed on right side of screen)
+  if(boss){
+    drawClawzilla(BASE_W - 120, groundY, boss.clawsOut, boss.hp, boss.maxHp);
+    ctx.font = `${S(7)}px 'Press Start 2P', monospace`;
+    ctx.textAlign = 'center';
+    if(boss.clawsOut){
+      ctx.fillStyle = P.red;
+      ctx.fillText('CLAWS OUT! DODGE!', BASE_W/2, 70);
+    } else if(boss.restTimer > 0){
+      ctx.fillStyle = P.milLight;
+      ctx.fillText('ATTACK!', BASE_W/2, 70);
+    }
+    ctx.textAlign = 'left';
+  }
+
+  // HUD
+  ctx.font = `${S(7)}px 'Press Start 2P', monospace`;
+  ctx.fillStyle = P.textMuted;
+  ctx.fillText(`SCORE ${score}`, 8, 18);
+  ctx.fillText(`LIVES ${lives}`, 8, 34);
+  ctx.fillText(`ZONE ${zone}`, 8, 50);
+  ctx.fillText(`BEST ${highScore}`, BASE_W - 100, 18);
+  ctx.fillText(`${Math.floor(distance)}m`, BASE_W - 80, 34);
+
+  // Prologue
+  if(gameState === 'prologue'){
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, BASE_W, BASE_H);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = P.yellow;
+    ctx.font = `${S(10)}px 'Press Start 2P', monospace`;
+    let y = 80;
+    for(let i = 0; i <= storyIndex; i++){
+      if(PROLOGUE[i] === ''){ y += 12; continue; }
+      const line = PROLOGUE[i];
+      const show = i < storyIndex ? line : line.slice(0, storyCharIndex);
+      ctx.fillStyle = i === storyIndex ? P.cream : P.textMuted;
+      ctx.fillText(show, BASE_W/2, y);
+      y += 22;
+    }
+    if(storyIndex >= PROLOGUE.length){
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(BASE_W/2 - 140, BASE_H - 70, 280, 45);
+      ctx.strokeStyle = P.yellow;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(BASE_W/2 - 140, BASE_H - 70, 280, 45);
+      ctx.fillStyle = frame % 40 < 20 ? P.yellow : P.cream;
+      ctx.font = `${S(9)}px 'Press Start 2P', monospace`;
+      ctx.fillText('PRESS SPACE OR CLICK', BASE_W/2, BASE_H - 45);
+      ctx.font = `${S(7)}px 'Press Start 2P', monospace`;
+      ctx.fillStyle = P.textMuted;
+      ctx.fillText('TO CONTINUE', BASE_W/2, BASE_H - 28);
+    }
+    ctx.textAlign = 'left';
+  }
+
+  // Briefing
+  if(gameState === 'briefing'){
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, BASE_W, BASE_H);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = P.yellow;
+    ctx.font = `${S(9)}px 'Press Start 2P', monospace`;
+    ctx.fillText(storyTitle, BASE_W/2, 70);
+    let y = 110;
+    for(let i = 0; i < storyLines.length; i++){
+      const line = storyLines[i];
+      const full = `${line.s}: ${line.t}`;
+      const show = i < storyIndex ? full : (i === storyIndex ? `${line.s}: ${line.t.slice(0, storyCharIndex)}` : '');
+      if(show){
+        ctx.fillStyle = i === storyIndex ? P.cream : P.textMuted;
+        ctx.font = `${S(7)}px 'Press Start 2P', monospace`;
+        ctx.fillText(show, BASE_W/2, y);
+        y += 24;
+      }
+    }
+    if(storyIndex >= storyLines.length){
+      ctx.fillStyle = frame % 50 < 25 ? P.yellow : P.textMuted;
+      ctx.fillText('SPACE TO START', BASE_W/2, BASE_H - 50);
+    }
+    ctx.textAlign = 'left';
+  }
+
+  // Game over
+  if(gameState === 'gameOver'){
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    ctx.fillRect(0, 0, BASE_W, BASE_H);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = P.red;
+    ctx.font = `${S(11)}px 'Press Start 2P', monospace`;
+    ctx.fillText('WIPEOUT!', BASE_W/2, BASE_H/2 - 50);
+    ctx.fillStyle = P.text;
+    ctx.font = `${S(8)}px 'Press Start 2P', monospace`;
+    ctx.fillText(`SCORE: ${score}`, BASE_W/2, BASE_H/2);
+    ctx.fillText(`BEST: ${highScore}`, BASE_W/2, BASE_H/2 + 28);
+    ctx.fillStyle = frame % 50 < 25 ? P.yellow : P.textMuted;
+    ctx.fillText('SPACE TO RETRY', BASE_W/2, BASE_H/2 + 70);
+    ctx.textAlign = 'left';
+  }
+
+  // Victory
+  if(gameState === 'victory'){
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    ctx.fillRect(0, 0, BASE_W, BASE_H);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = P.yellow;
+    ctx.font = `${S(12)}px 'Press Start 2P', monospace`;
+    ctx.fillText('GOOD BOY WINS!', BASE_W/2, BASE_H/2 - 40);
+    ctx.fillStyle = P.cream;
+    ctx.font = `${S(8)}px 'Press Start 2P', monospace`;
+    ctx.fillText('CLAWZILLA DEFEATED.', BASE_W/2, BASE_H/2);
+    ctx.fillText('THE PARK IS SAFE.', BASE_W/2, BASE_H/2 + 28);
+    ctx.fillText(`SCORE: ${score}`, BASE_W/2, BASE_H/2 + 60);
+    ctx.fillStyle = frame % 50 < 25 ? P.yellow : P.textMuted;
+    ctx.fillText('SPACE TO PLAY AGAIN', BASE_W/2, BASE_H/2 + 100);
+    ctx.textAlign = 'left';
+  }
+
+  ctx.restore();
+}
+
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
