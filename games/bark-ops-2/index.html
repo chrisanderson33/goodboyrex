@@ -1,0 +1,2662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BARK OPS 2: Dragon Squadron</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#050a08;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:'Press Start 2P',monospace;}
+#gameCanvas{display:block;image-rendering:pixelated;cursor:none;border-radius:6px;
+  box-shadow:0 0 32px rgba(40,220,80,0.18),0 0 80px rgba(20,160,50,0.10),0 0 4px rgba(80,255,100,0.25);
+  filter:brightness(1.06) saturate(1.18) contrast(1.07);}
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<script>
+'use strict';
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+const BASE_W = 800, BASE_H = 450;
+let SCALE = 1;
+function resizeCanvas(){
+  const aspect = BASE_W/BASE_H;
+  let w = window.innerWidth, h = window.innerHeight;
+  if(w/h > aspect){ w = Math.floor(h*aspect); } else { h = Math.floor(w/aspect); }
+  canvas.width = w; canvas.height = h; SCALE = w/BASE_W;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function S(v){ return v*SCALE; }
+function SR(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(S(x),S(y),S(w),S(h)); }
+function SC(x,y,r,c){ ctx.fillStyle=c; ctx.beginPath(); ctx.arc(S(x),S(y),S(r),0,Math.PI*2); ctx.fill(); }
+function drawText(txt,x,y,col,sz,align){
+  ctx.font = `${S(sz||8)}px 'Press Start 2P',monospace`;
+  ctx.textAlign = align||'left';
+  ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillText(txt, S(x)+S(1), S(y)+S(1));
+  ctx.fillStyle = col;                ctx.fillText(txt, S(x),       S(y));
+  ctx.textAlign = 'left';
+}
+
+// ════════════════════════════════════════════════════════════
+// PALETTE — merged from original BARK OPS + sequel additions
+// ════════════════════════════════════════════════════════════
+const P = {
+  // originals (used by sprites)
+  milGreen:'#4a6a3a', milMid:'#6a8a4a',  milLight:'#8aaa5a', milDark:'#2a4a1a', milBright:'#a0c060', milShadow:'#1a3010',
+  tan:'#d4b87a',      tanLight:'#e8d4a0', tanDark:'#9a7428',  tanDeep:'#6a4418', tanShadow:'#4a2a0a',
+  skinDark:'#a07848',
+  red:'#d04030',      redLight:'#e06050', redDark:'#a02820',
+  orange:'#e88830',   orangeLight:'#f0a848', orangeDk:'#cc7018', orangeDp:'#a05800',
+  yellow:'#f0cc48',   yelLight:'#f8e070',    yelDark:'#d4a820',  yelDeep:'#b8860b', yelBright:'#f8f080',
+  gray:'#8898a0',     grayLight:'#a8b8c0',   grayDark:'#586878', grayDeep:'#384858',
+  cream:'#f4f0e0',    creamLight:'#faf8f0',  creamDk:'#e0d8c0',  creamDp:'#c8b89a',
+  blue:'#3090cc',     blueLight:'#50b0e8',   blueDark:'#1a6a9a', blueDeep:'#104a6a',
+  purple:'#7a3898',   purpLight:'#9a58b8',   purpDark:'#582868',
+  black:'#080810',    white:'#f8f8f0',        trueBlack:'#000000',
+  lava:'#e84818',     lavaGlow:'#f07030',
+  metal:'#90a0b8',    metalLight:'#b0c0d0',  metalDk:'#607080',  metalDeep:'#405060', metalBright:'#c8d8e0',
+  gold:'#f0c830',     goldLight:'#f8e060',   goldDark:'#c8a010',
+  green:'#40a040',    greenLight:'#60c060',  greenDark:'#208020',
+  brown:'#8a6030',    brownLight:'#a88048',  brownDark:'#604018',
+  pink:'#e878a0',
+  teal:'#30a0a0',
+  // backdrop
+  bgDark:'#060d2a', bgMid:'#0f1f5a', bgLight:'#1a2a7a',
+  hillD:'#0a1a0a', hillM:'#142814',
+  groundTop:'#2a5a10', groundDirt:'#1a3a0a', groundSub:'#0e200a',
+  brickR:'#b84030', brickL:'#d05848', brickMt:'#6a3020',
+  stoneG:'#707878', stoneL:'#909898', stoneD:'#505858',
+  goalG:'#d0a000',  goalL:'#f8e060',
+  // ability tints
+  sCyan:'#00ccff',  sCyanD:'#006688',
+  fFire:'#ff5500',  fFireL:'#ff9900',
+  fPurp:'#cc44ff',  fPurpD:'#661188',
+  // dragon
+  dBody:'#2a7030',  dBodyL:'#3a9040', dWing:'#8a1808', dWingL:'#c03020',
+  dGold:'#d09010',  dGoldL:'#f8d040', dFire:'#ff8800', dFireL:'#ffee00',
+  dSnout:'#408848',
+};
+
+// ════════════════════════════════════════════════════════════
+// 16×16 PIXEL SPRITE RENDERER  (exact from original)
+// ════════════════════════════════════════════════════════════
+function drawSpr(ox, oy, data, pal, ps){
+  ps = ps || 2;
+  for(let r=0; r<data.length; r++){
+    const row = data[r];
+    for(let c=0; c<row.length; c++){
+      if(row[c]==='.')continue;
+      const color = pal[row[c]];
+      if(color) SR(ox+c*ps, oy+r*ps, ps, ps, color);
+    }
+  }
+}
+
+// ── REX SPRITES (exact from original) ──────────────────────
+const rexP = {
+  G:P.milGreen, g:P.milDark, Y:P.yellow,   M:P.milMid,
+  T:P.tan,      L:P.tanLight, t:P.tanDark,  d:P.tanDeep,
+  s:P.skinDark, B:P.black,   W:P.white,    R:P.redDark, C:P.cream
+};
+const rexBody = [
+  '.....GGGg.......',
+  '....gGGGGY......',
+  '..dTTTTTTTTd....',
+  '..sTTTTTTTTs....',
+  '...TWBTTBWTt....',
+  '....TTTBTTT.....',
+  '....TTTTTTTT....',
+  '.LLTTGGGGTTLL...',
+  '..LTTGMgMTTL....',
+  '..LTTGGGGGTL....',
+  '....tGGGGt......',
+  '....tt..tt......',
+  '....tt..tt......',
+  '................',
+  '................',
+  '................'
+];
+const rexAtk = [
+  '.....GGGg.......',
+  '....gGGGGY......',
+  '..dTTTTTTTTd....',
+  '..sTTTTTTTTs....',
+  '...TWBTTBWTt....',
+  '...TTRRRRTT.....',
+  '...TTCRCRCTT....',
+  'LLLTTGGGGTTLLL..',
+  '..LTTGMgMTTL....',
+  '..LTTGGGGGTL....',
+  '....tGGGGt......',
+  '....tt..tt......',
+  '....tt..tt......',
+  '................',
+  '................',
+  '................'
+];
+// Ability-tinted Rex variants (helmet/vest recolored)
+const rexSpeed = rexBody.map((row,i)=>{
+  if(i===0||i===1)return row.replace(/G/g,'B').replace(/g/g,'b').replace(/Y/g,'y');
+  if(i===7||i===8||i===9)return row.replace(/G/g,'B').replace(/M/g,'b').replace(/g/g,'K');
+  return row;
+});
+const rexSpeedP = Object.assign({},rexP,{B:'#00aadd',b:'#006688',y:'#00ffff',K:'#003355'});
+const rexFire = rexBody.map((row,i)=>{
+  if(i===0||i===1)return row.replace(/G/g,'F').replace(/g/g,'f').replace(/Y/g,'O');
+  if(i===7||i===8||i===9)return row.replace(/G/g,'F').replace(/M/g,'f').replace(/g/g,'K');
+  return row;
+});
+const rexFireP = Object.assign({},rexP,{F:P.red,f:P.redDark,O:P.orange,K:'#440000'});
+const rexFly = rexBody.map((row,i)=>{
+  if(i===0||i===1)return row.replace(/G/g,'V').replace(/g/g,'v').replace(/Y/g,'U');
+  if(i===7||i===8||i===9)return row.replace(/G/g,'V').replace(/M/g,'v').replace(/g/g,'K');
+  return row;
+});
+const rexFlyP = Object.assign({},rexP,{V:P.purple,v:P.purpDark,U:P.purpLight,K:'#280a30'});
+const rexDrag = rexBody.map((row,i)=>{
+  if(i===0||i===1)return row.replace(/G/g,'D').replace(/g/g,'d2').replace(/Y/g,'Z');
+  if(i===7||i===8||i===9)return row.replace(/G/g,'D').replace(/M/g,'d2').replace(/g/g,'K');
+  return row;
+});
+const rexDragP = Object.assign({},rexP,{D:P.dBody,d2:P.dGold,Z:P.dFire,K:'#0a2010'});
+
+function drawRex(sx, sy, facing, animFrame, action){
+  ctx.save();
+  if(facing < 0){ ctx.translate(S(sx),0); ctx.scale(-1,1); ctx.translate(-S(sx),0); }
+  const ox = sx-16, oy = sy-32;
+  // Shadow
+  ctx.globalAlpha = 0.2; SR(ox+4,oy+30,24,4,P.trueBlack); ctx.globalAlpha = 1;
+  // Sprite
+  const spr = action==='attack'? rexAtk : rexBody;
+  drawSpr(ox, oy, spr, rexP, 2);
+  // Ear twitch
+  const tw = Math.round(Math.sin(frame*0.15)*2)*2;
+  SR(ox+26, oy+14+tw, 4,4, P.tan); SR(ox+28, oy+16+tw, 2,4, P.tanDark);
+  // Leg walk
+  const lo = action==='attack' ? 0 : [0,2,0,-2][animFrame%4];
+  if(lo!==0){ SR(ox+8,oy+24+lo,4,4,P.tanDark); SR(ox+16,oy+24-lo,4,4,P.tanDark); }
+  ctx.restore();
+}
+function drawRexAbility(sx, sy, facing, animFrame, ability){
+  ctx.save();
+  // Grow: scale up 1.6x around bottom-center before anything else
+  if(ability==='grow'){
+    ctx.translate(S(sx), S(sy));
+    ctx.scale(1.6, 1.6);
+    ctx.translate(-S(sx), -S(sy));
+    // Green earth glow
+    ctx.fillStyle='rgba(60,200,60,0.12)';
+    ctx.beginPath(); ctx.arc(S(sx),S(sy-14),S(28),0,Math.PI*2); ctx.fill();
+  }
+  if(facing < 0){ ctx.translate(S(sx),0); ctx.scale(-1,1); ctx.translate(-S(sx),0); }
+  const ox = sx-16, oy = sy-32;
+  ctx.globalAlpha = 0.2; SR(ox+4,oy+30,24,4,P.trueBlack); ctx.globalAlpha = 1;
+  let spr, pal;
+  if(ability==='speed'){ spr=rexSpeed; pal=rexSpeedP; }
+  else if(ability==='fire'){ spr=rexFire; pal=rexFireP; }
+  else if(ability==='fly'){ spr=rexFly; pal=rexFlyP; }
+  else if(ability==='dragon'){ spr=rexDrag; pal=rexDragP; }
+  else if(ability==='grow'){ spr=rexBody; pal=Object.assign({},rexP,{G:'#3a9a3a',g:'#1a6a1a',M:'#5aba5a',Y:'#a0ff60'}); }
+  else { spr=rexBody; pal=rexP; }
+  drawSpr(ox, oy, spr, pal, 2);
+  const tw = Math.round(Math.sin(frame*0.15)*2)*2;
+  SR(ox+26,oy+14+tw,4,4,P.tan); SR(ox+28,oy+16+tw,2,4,P.tanDark);
+  const lo = [0,2,0,-2][animFrame%4];
+  if(lo!==0){ SR(ox+8,oy+24+lo,4,4,P.tanDark); SR(ox+16,oy+24-lo,4,4,P.tanDark); }
+  // Fly wings backpack
+  if(ability==='fly'){
+    const wflap = Math.sin(frame*0.35)*5;
+    SR(ox+26, oy+16, 6,10, P.purpDark);
+    SR(ox+28, oy+12-wflap, 4,9, P.fPurp); SR(ox+28, oy+10-wflap, 3,7, P.purpLight);
+    SR(ox+26, oy+14+wflap, 4,8, P.fPurp);
+  }
+  // Fire weapon
+  if(ability==='fire'){
+    SR(ox+28,oy+20,10,4,P.grayDark); SR(ox+32,oy+19,7,2,P.gray); SR(ox+36,oy+20,5,4,P.fFireL);
+  }
+  // Speed lightning on helmet
+  if(ability==='speed'){
+    ctx.fillStyle = P.yelBright;
+    ctx.beginPath();
+    ctx.moveTo(S(ox+20),S(oy+1)); ctx.lineTo(S(ox+16),S(oy+7));
+    ctx.lineTo(S(ox+19),S(oy+7)); ctx.lineTo(S(ox+15),S(oy+13));
+    ctx.lineTo(S(ox+21),S(oy+6)); ctx.lineTo(S(ox+18),S(oy+6));
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ── CAT SPRITES (exact from original) ──────────────────────
+const catP = {G:P.gray,g:P.grayDark,L:P.grayLight,R:P.red,Y:P.yellow,y:P.yelBright,B:P.black};
+const catBody = [
+  '..G......G......',
+  '..GG.gg.GG......',
+  '..GRLLLLRG......',
+  '..LyBLLByL......',
+  '...LLLLLL.......',
+  '....LLRLL.......',
+  '....LLLLL.......',
+  '...GGRRGGG......',
+  '...GGGYGGGG.....',
+  '...GGGGGGG.G....',
+  '...gg.gg.gg.....',
+  '....gg.gg.......',
+  '....gg.gg.......',
+  '................',
+  '................',
+  '................'
+];
+function drawCatBasic(ox, oy, af){
+  drawSpr(ox, oy, catBody, catP, 2);
+  const lf = [0,2,0,-2][af%4];
+  if(lf!==0){ SR(ox+8,oy+24+lf,4,4,P.black); SR(ox+16,oy+24-lf,4,4,P.black); }
+}
+
+const laserP = {B:P.blue,b:P.blueDark,L:P.blueLight,D:P.blueDeep,G:P.grayDark,g:P.gray,l:P.grayLight,Y:P.yellow,y:P.yelBright,K:P.black,R:P.red,r:P.redLight,C:P.creamDk};
+const laserBody = [
+  '..B......B......',
+  '..BB.bb.BB......',
+  '..BLLLLLBL......',
+  '..gYyGYygL......',
+  '..gKKGKKgL......',
+  '....LLRL........',
+  '...BBLBB........',
+  '..BBBBBBBBglll..',
+  '..BBLBLBBB.lR...',
+  '..BBBBBBBBB.....',
+  '..bb.bb.bB......',
+  '....bb.bb.......',
+  '....bb.bb.......',
+  '................',
+  '................',
+  '................'
+];
+function drawLaserCat(ox, oy, af){
+  drawSpr(ox, oy, laserBody, laserP, 2);
+  const lf = [0,2,0,-2][af%4];
+  if(lf!==0){ SR(ox+8,oy+24+lf,4,2,P.black); SR(ox+16,oy+24-lf,4,2,P.black); }
+  ctx.globalAlpha = 0.3; SR(ox+24,oy+14,8,6,P.lava); ctx.globalAlpha = 1;
+  ctx.strokeStyle=P.creamDk; ctx.lineWidth=S(0.5);
+  ctx.beginPath(); ctx.moveTo(S(ox+4),S(oy+12)); ctx.lineTo(S(ox+10),S(oy+11)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(S(ox+22),S(oy+12)); ctx.lineTo(S(ox+16),S(oy+11)); ctx.stroke();
+}
+
+const armorP = {G:P.grayDark,g:P.grayDeep,M:P.metal,m:P.metalLight,K:P.metalDk,k:P.metalBright,R:P.red,r:P.redLight,B:P.black};
+const armorBody = [
+  '..G..gg..G......',
+  '..GGkmmkGG......',
+  '..GkMMMMMkG.....',
+  '...BRRRRRRB.....',
+  '...GMMMMMMG.....',
+  '....GGBGGG......',
+  '....GGGGG.......',
+  '.kMMGGGGMMk.....',
+  '.kMMGGGGMMk.....',
+  '..GMMGGMMG.G....',
+  '..gg....gg.g....',
+  '...gg..gg.......',
+  '...gg..gg.......',
+  '................',
+  '................',
+  '................'
+];
+function drawArmoredCat(ox, oy, af){
+  drawSpr(ox, oy, armorBody, armorP, 2);
+  const lf = [0,2,0,-2][af%4];
+  if(lf!==0){ SR(ox+6,oy+24+lf,4,2,P.metal); SR(ox+14,oy+24-lf,4,2,P.metal); }
+  ctx.globalAlpha=0.2; SR(ox+6,oy+6,18,4,P.red); ctx.globalAlpha=1;
+}
+
+function drawEnemyCat(sx, sy, facing, animFrame, kind){
+  ctx.save();
+  if(facing < 0){ ctx.translate(S(sx),0); ctx.scale(-1,1); ctx.translate(-S(sx),0); }
+  const ox = sx-16, oy = sy-32;
+  if(kind==='cat')    drawCatBasic(ox,oy,animFrame);
+  else if(kind==='laser')  drawLaserCat(ox,oy,animFrame);
+  else if(kind==='armored') drawArmoredCat(ox,oy,animFrame);
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════════════════════
+// STORY DATA
+// ════════════════════════════════════════════════════════════
+const MISSIONS = [
+  {
+    title:'MISSION 1: RUINS OF THE DOCKS',
+    lines:[
+      {s:'HQ',  t:'AGENT REX. WE HAVE A SITUATION.'},
+      {s:'REX', t:'TALK TO ME, COMMANDER.'},
+      {s:'HQ',  t:'DR. WHISKERS IS ALIVE.'},
+      {s:'REX', t:'IMPOSSIBLE. I STOPPED HIM LAST YEAR.'},
+      {s:'HQ',  t:'HE REBUILT HIMSELF. HALF ROBOT NOW.'},
+      {s:'HQ',  t:'AND HE FOUND DRAGONS. REAL ONES.'},
+      {s:'REX', t:'...DRAGONS.'},
+      {s:'HQ',  t:'HE WANTS TO USE THEM TO TAKE OVER.'},
+      {s:'HQ',  t:'FIRST SIGHTING: THE OLD DOCKS.'},
+      {s:'REX', t:'ILL HANDLE IT. SEND ME IN.'},
+      {s:'HQ',  t:'CAREFUL REX. THESE CATS MEAN BUSINESS.'},
+      {s:'HQ',  t:'OBJECTIVE: CLEAR THE DOCKS'},
+    ]
+  },
+  {
+    title:'MISSION 2: THE DRAGON PLAINS',
+    lines:[
+      {s:'REX', t:'DOCKS ARE CLEAR. WHAT NEXT?'},
+      {s:'HQ',  t:'SATELLITE FOUND A HIDDEN DRAGON FARM.'},
+      {s:'REX', t:'WHISKERS IS BREEDING DRAGONS?'},
+      {s:'HQ',  t:'HUNDREDS OF THEM. ITS WORSE THAN WE THOUGHT.'},
+      {s:'HQ',  t:'CAT SCIENTISTS. LASER SQUADS. FULL OPERATION.'},
+      {s:'REX', t:'I HAVE TO SHUT IT DOWN.'},
+      {s:'HQ',  t:'REX -- SOME DRAGONS MIGHT BE FREE.'},
+      {s:'HQ',  t:'IF YOU FIND ONE, IT COULD HELP YOU.'},
+      {s:'REX', t:'A DRAGON PARTNER. I LIKE THAT PLAN.'},
+      {s:'HQ',  t:'OBJECTIVE: DESTROY THE DRAGON FARM'},
+    ]
+  },
+  {
+    title:'MISSION 3: IRON FORTRESS',
+    lines:[
+      {s:'REX', t:'FARM IS DOWN. CATS ARE IN FULL RETREAT.'},
+      {s:'HQ',  t:'GOOD WORK. BUT WHISKERS FLED.'},
+      {s:'HQ',  t:'HES INSIDE HIS IRON FORTRESS NOW.'},
+      {s:'REX', t:'THEN ILL BRING THE FORTRESS DOWN.'},
+      {s:'HQ',  t:'REX, LISTEN. DARK CLAW IS GUARDING IT.'},
+      {s:'REX', t:'DARK CLAW?'},
+      {s:'HQ',  t:'WHISKERS MOST DANGEROUS CAT GENERAL.'},
+      {s:'HQ',  t:'PURPLE. FAST. MEAN. DO NOT UNDERESTIMATE HIM.'},
+      {s:'REX', t:'A MEAN PURPLE CAT. NOTED.'},
+      {s:'HQ',  t:'THERES ALSO A DRAGON ENGINE INSIDE.'},
+      {s:'HQ',  t:'DESTROY IT AND WHISKERS LOSES HIS POWER.'},
+      {s:'HQ',  t:'OBJECTIVE: DEFEAT DARK CLAW + BREACH THE FORTRESS'},
+    ]
+  },
+  {
+    title:'MISSION 4: RACE TO THE VOLCANO',
+    lines:[
+      {s:'REX', t:'DARK CLAW IS DOWN. ENGINE DESTROYED.'},
+      {s:'HQ',  t:'INCREDIBLE WORK, REX.'},
+      {s:'HQ',  t:'BUT WHISKERS ACTIVATED A BACKUP PLAN.'},
+      {s:'REX', t:'OF COURSE HE DID.'},
+      {s:'HQ',  t:'HES AT THE VOLCANO. LAUNCHING HIS DRAGON ARMY.'},
+      {s:'HQ',  t:'IF IT LAUNCHES, THE WORLD IS FINISHED.'},
+      {s:'REX', t:'HOW LONG DO WE HAVE?'},
+      {s:'HQ',  t:'MINUTES. MAYBE LESS. YOU NEED A DRAGON, REX.'},
+      {s:'REX', t:'ALREADY ON IT. I KNOW ONE WHO OWES ME A RIDE.'},
+      {s:'HQ',  t:'YOU SURE ABOUT FLYING INTO AN ACTIVE VOLCANO?'},
+      {s:'REX', t:'IM A DOG. I WAS BORN FOR THIS.'},
+      {s:'HQ',  t:'OBJECTIVE: REACH THE VOLCANO SUMMIT'},
+    ]
+  },
+  {
+    title:'MISSION 5: THE FINAL SHOWDOWN',
+    lines:[
+      {s:'HQ',  t:'REX, WHISKERS IS AT THE LAUNCH PAD.'},
+      {s:'HQ',  t:'HES RIDING A LAVA DRAGON OF HIS OWN.'},
+      {s:'REX', t:'THEN WE FIGHT DRAGON VS DRAGON.'},
+      {s:'HQ',  t:'THE LAUNCH COUNTDOWN HAS STARTED.'},
+      {s:'REX', t:'ILL STOP IT. I PROMISE.'},
+      {s:'HQ',  t:'REX... HES ACTUALLY OFFERING YOU A DEAL.'},
+      {s:'REX', t:'WHAT KIND OF DEAL?'},
+      {s:'HQ',  t:'A FAIR FIGHT. ONE ON ONE. HE GIVES YOU A DRAGON TOO.'},
+      {s:'REX', t:'...THE GUY IS INSANE. BUT I RESPECT IT.'},
+      {s:'HQ',  t:'THIS IS IT. THE FATE OF THE WORLD, REX.'},
+      {s:'HQ',  t:'NO PRESSURE. GOOD BOY. GOOD BOY.'},
+      {s:'HQ',  t:'OBJECTIVE: DEFEAT DR. WHISKERS'},
+    ]
+  }
+];
+
+const EPILOGUE = [
+  {s:'REX', t:'WHISKERS IS DOWN. ITS OVER.'},
+  {s:'HQ',  t:'REX... YOU DID IT. YOU ACTUALLY DID IT.'},
+  {s:'REX', t:'THE LAUNCH PAD IS DESTROYED. DRAGONS ARE FREE.'},
+  {s:'HQ',  t:'EVERY SINGLE ONE?'},
+  {s:'REX', t:'FLYING AWAY AS WE SPEAK. BEAUTIFUL SIGHT.'},
+  {s:'HQ',  t:'AND WHISKERS?'},
+  {s:'REX', t:'ALIVE. HE FELL IN THE LAVA PIT. SOMEHOW FINE.'},
+  {s:'HQ',  t:'OF COURSE HE IS.'},
+  {s:'REX', t:'MY DRAGON PULLED HIM OUT.'},
+  {s:'HQ',  t:'...YOUR DRAGON SAVED DR. WHISKERS?'},
+  {s:'REX', t:'DRAGONS HAVE MORE HEART THAN CATS DESERVE.'},
+  {s:'HQ',  t:'THE WORLD IS SAFE. COME HOME, REX.'},
+  {s:'REX', t:'COPY THAT. RIDING A DRAGON HOME. NOT BAD.'},
+  {s:'HQ',  t:'NOT BAD AT ALL. MISSION ACCOMPLISHED.'},
+];
+
+// ════════════════════════════════════════════════════════════
+// INPUT
+// ════════════════════════════════════════════════════════════
+const keys={}, pkeys={};
+window.addEventListener('keydown',e=>{ if(!keys[e.code])pkeys[e.code]=false; keys[e.code]=true; e.preventDefault(); });
+window.addEventListener('keyup',  e=>{ keys[e.code]=false; pkeys[e.code]=false; });
+function just(c){ return keys[c]&&!pkeys[c]; }
+function anyJust(){ return just('Enter')||just('Space')||just('KeyZ')||just('KeyX'); }
+function afterFrame(){ for(const k in keys) pkeys[k]=keys[k]; }
+
+// ════════════════════════════════════════════════════════════
+// GAME STATE
+// ════════════════════════════════════════════════════════════
+let gs = 'menu'; // menu | levelIntro | playing | bossIntro | levelDone | gameover | epilogue | victory
+let score=0, lives=5, level=1, frame=0, menuF=0;
+let livesAtEnd=5;
+let camX=0, levelW=3200;
+let shakeX=0, shakeY=0, shakeTmr=0;
+let levelDoneTimer=0;
+let bossArenaMode=false, bossArenaX=0, bossIntroTimer=0, bossArenaCamX=0;
+
+// Story state
+let storyLine=0, storyChar=0, storyTick=0;
+// Epilogue state
+let epilogueLine=0, epilogueChar=0, epilogueTick=0, epilogueDone=false;
+
+const GRAVITY=0.5, JUMP=-10, WALK=2.8, SPD_BOOST=1.75,
+      FLY_SPD=3.4, DRAG_SPD=6.5;
+
+// Entity lists
+let player={}, platforms=[], enemies=[], pickups=[], bullets=[], particles=[], dragonSpots=[], boneBlocks=[];
+let boss=null; // boss entity (levels 3 & 5)
+
+// ════════════════════════════════════════════════════════════
+// LEVEL GEN
+// ════════════════════════════════════════════════════════════
+function newGame(){ score=0; lives=5; level=1; beginLevel(); }
+function beginLevel(){
+  bullets=[]; particles=[]; boss=null;
+  camX=0; boneBlocks=[]; bossArenaMode=false; bossArenaX=0;
+  genLevel(level);
+  spawnPlayer();
+  storyLine=0; storyChar=0; storyTick=0;
+  gs='levelIntro';
+}
+function startPlay(){ gs='playing'; }
+
+function spawnPlayer(){
+  player={
+    x:60, y:300, w:26, h:28,
+    vx:0, vy:0, onGround:false, facing:1,
+    ability:null, flyFuel:100, dragFuel:300,
+    invTmr:0, shootCd:0, slapCd:0, slapAnim:0, crawlingIn:false, crawlTimer:0, crawlTargetX:0, infiniteDrag:false,
+    walkF:0, walkT:0,
+    dead:false, deadTmr:0,
+  };
+}
+
+function genLevel(lv){
+  platforms=[]; enemies=[]; pickups=[]; dragonSpots=[]; boneBlocks=[];
+  levelW = 5000 + lv*800;
+
+  platforms.push({x:0, y:420, w:levelW, h:30, kind:'ground'});
+
+  // ── Elevated platforms + bone blocks ──
+  let px=240, py=360;
+  while(px < levelW-400){
+    const pw = 60+Math.random()*100;
+    py = clamp(py+(Math.random()-0.5)*120, 145, 390);
+    const kind = Math.random()<0.55 ? 'brick' : 'stone';
+    platforms.push({x:px, y:py, w:pw, h:18, kind});
+
+    // Bone block(s) floating above platform — hit from below for upgrade
+    if(Math.random()<0.14){
+      const bx = px + pw/2 - 15 + (Math.random()-0.5)*20;
+      boneBlocks.push({x:bx, y:py-62, w:30, h:30, kind:rndPU(), hit:false, hitAnim:0});
+    }
+    if(Math.random()<0.05){ // occasional second bone
+      const bx = px + 8 + Math.random()*(pw-30);
+      boneBlocks.push({x:bx, y:py-100, w:30, h:30, kind:rndPU(), hit:false, hitAnim:0});
+    }
+
+    if(Math.random()<0.38+lv*0.05){
+      enemies.push(mkEnemy(px+pw/2, py, lv, px, px+pw));
+    }
+    px += pw + 55 + Math.random()*110;
+  }
+
+  // ── Ground-level rows of bone blocks ──
+  const numGroundRows = 4 + lv;
+  for(let i=0; i<numGroundRows; i++){
+    const gx = 200 + Math.random()*(levelW-500);
+    // Cluster of 1-3 bones at ground height (hit from below by jumping)
+    // Only spawn a ground bone cluster 25% of the time
+    if(Math.random()<0.25){
+      boneBlocks.push({x:gx, y:350, w:30, h:30, kind:rndPU(), hit:false, hitAnim:0});
+    }
+    if(Math.random()<0.55) enemies.push(mkEnemy(gx+30, 420, lv, gx-40, gx+100));
+  }
+
+  // ── Extra ground enemies ──
+  for(let i=0; i<4+lv; i++){
+    const gx = 300+Math.random()*(levelW-500);
+    if(Math.random()<0.6) enemies.push(mkEnemy(gx, 420, lv, gx-80, gx+80));
+  }
+
+  // Boss arena + spawn (levels 3 & 5)
+  if(lv===3||lv===5){
+    const arenaX = levelW-700;
+    bossArenaX = arenaX;
+    // Clear enemies, bone blocks, and pickups from arena zone
+    for(let i=enemies.length-1;i>=0;i--){
+      if(enemies[i].x > arenaX-100) enemies.splice(i,1);
+    }
+    for(let i=boneBlocks.length-1;i>=0;i--){
+      if(boneBlocks[i].x > arenaX-120) boneBlocks.splice(i,1);
+    }
+    for(let i=pickups.length-1;i>=0;i--){
+      if(pickups[i].x > arenaX-120) pickups.splice(i,1);
+    }
+    if(lv===3){
+      // Dark Claw colosseum — stone floor + tiered platforms + fire pickup
+      platforms.push({x:arenaX-80, y:390, w:720, h:18, kind:'stone'});
+      platforms.push({x:arenaX+60,  y:330, w:140, h:14, kind:'stone'});
+      platforms.push({x:arenaX+300, y:315, w:140, h:14, kind:'stone'});
+      pickups.push({x:arenaX+100, y:313, w:16, h:16, kind:'fire', alive:true, bob:0, vy:0, popped:false});
+    } else {
+      // Dr. Whiskers VOLCANO — no solid floor (lava below), floating platforms above lava
+      platforms.push({x:arenaX+30,  y:340, w:130, h:14, kind:'stone'});
+      platforms.push({x:arenaX+210, y:295, w:130, h:14, kind:'stone'});
+      platforms.push({x:arenaX+380, y:310, w:130, h:14, kind:'stone'});
+      platforms.push({x:arenaX+530, y:340, w:110, h:14, kind:'stone'});
+    }
+    const bossHp = lv===5 ? 40 : 20;
+    const bossKind = lv===5 ? 'mech' : 'ironclaw';
+    boss = {
+      x:arenaX+200, y:-80, // starts above screen — drops in during intro
+      w:lv===5?80:60, h:lv===5?60:48,
+      hp:bossHp, maxHp:bossHp, kind:bossKind, alive:true,
+      vx:1.2, vy:0, facing:-1, onGround:false,
+      shootCd:999, chargeTimer:0, phase:1,
+      walkF:0, walkT:0, pmin:arenaX-60, pmax:arenaX+540,
+      invTmr:0, deathTimer:0, dormant:true, // dormant until intro finishes
+    };
+    bossArenaCamX = arenaX - 100; // center 560px arena on 800px screen
+  }
+
+  // Goal — placed AFTER the boss arena on boss levels, otherwise near end
+  const goalX = (lv===3||lv===5) ? bossArenaX+680 : levelW-180;
+  if(lv===3||lv===5) levelW = goalX + 300; // extend level so goal is reachable
+  // Goal is a ground-level trigger zone (invisible, same height as ground)
+  platforms.push({x:goalX, y:402, w:80, h:18, kind:'goal', isGoal:true});
+
+  // Dragon (super rare)
+  if(Math.random()<0.5){
+    const dx=600+Math.random()*(levelW-900), dy=150+Math.random()*120;
+    dragonSpots.push({x:dx, y:dy, w:52, h:34, alive:true, bobT:0, glowT:0});
+  }
+
+  platforms.sort((a,b)=>a.x-b.x);
+}
+
+function rndPU(){
+  const r=Math.random();
+  if(r<0.25)return'speed';
+  if(r<0.48)return'fire';
+  if(r<0.68)return'fly';
+  if(r<0.85)return'grow';
+  return 'life';
+}
+function mkEnemy(x, y, lv, pmin, pmax){
+  const pool=['cat','cat','cat','laser','armored'];
+  const ti = Math.min(Math.floor(Math.random()*(2+lv)), pool.length-1);
+  const t = pool[ti];
+  return {
+    x, y:y-28, w:24, h:28,
+    vx:(Math.random()<0.5?1:-1)*(0.35+Math.random()*0.25+lv*0.075),
+    vy:0, onGround:false, facing:1,
+    kind:t, hp:t==='armored'?3:1, maxhp:t==='armored'?3:1,
+    alive:true, pmin, pmax,
+    shootCd:60+Math.random()*240,
+    walkF:0, walkT:0,
+  };
+}
+
+// ════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+function overlap(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
+function landOn(ent, plat){
+  if(ent.vy<0)return false;
+  const prevB = ent.y + ent.h - ent.vy;
+  if(prevB > plat.y+6)return false;
+  if(ent.y+ent.h < plat.y-2)return false;
+  if(ent.x+ent.w <= plat.x || ent.x >= plat.x+plat.w)return false;
+  return true;
+}
+function shake(d){ shakeTmr=d; }
+
+// ════════════════════════════════════════════════════════════
+// PARTICLES & BULLETS
+// ════════════════════════════════════════════════════════════
+function spawnParts(x,y,col,n,sp){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, s=0.5+Math.random()*(sp||3);
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,col,life:15+Math.random()*20,maxL:35,sz:1+Math.random()*3});
+  }
+}
+function hitParts(x,y){ spawnParts(x,y,P.red,8,4); spawnParts(x,y,P.orange,5,3); }
+function fireParts(x,y){ spawnParts(x,y,P.orange,4,3); spawnParts(x,y,P.yellow,3,2); }
+function collectParts(x,y,col){ spawnParts(x,y,col,14,5); spawnParts(x,y,'#ffffff',6,4); }
+
+function fireball(x,y,dir,isEnemy,big){
+  // Enemy laser cats fire at varied angles toward player
+  let vx, vy=0;
+  if(isEnemy && !big){
+    const angle = Math.atan2(player.y+player.h/2 - y, player.x+player.w/2 - x);
+    const spread = (Math.random()-0.5)*0.6; // random cone spread
+    const spd = 3.2;
+    vx = Math.cos(angle+spread)*spd;
+    vy = Math.sin(angle+spread)*spd;
+  } else {
+    vx = dir*(big?9:5.5);
+    vy = big?(Math.random()-0.5)*1.5:-2; // fire starts with slight upward arc
+  }
+  bullets.push({x,y,w:big?18:8,h:big?10:6, vx, vy, isEnemy, alive:true, big, age:0, bounces:0});
+}
+
+// ════════════════════════════════════════════════════════════
+// UPDATE — PLAYER
+// ════════════════════════════════════════════════════════════
+function updatePlayer(){
+  const p=player;
+  if(p.dead){ p.deadTmr++; if(p.deadTmr>70)respawn(); return; }
+  if(p.invTmr>0)p.invTmr--;
+  if(p.shootCd>0)p.shootCd--;
+  if(p.slapCd>0)p.slapCd--;
+  if(p.slapAnim>0)p.slapAnim--;
+
+  // === GROW SLAP ATTACK (X key) ===
+  if(p.ability==='grow' && just('KeyX') && p.slapCd<=0){
+    p.slapCd=22; p.slapAnim=14;
+    shake(6);
+    // Slap hitbox — big reach in facing direction
+    const slapX = p.facing>0 ? p.x+p.w : p.x-64;
+    const slapBox={x:slapX, y:p.y-8, w:64, h:p.h+16};
+    for(const e of enemies){
+      if(!e.alive||e.spinning)continue;
+      if(overlap(slapBox,e)){
+        // Launch the cat spinning off screen
+        e.spinning=true;
+        e.vx = p.facing * (10+Math.random()*4);
+        e.vy = -(6+Math.random()*4);
+        e.spinAngle=0;
+        e.spinSpeed = (0.28+Math.random()*0.18) * p.facing;
+        score += 200;
+        // Big splat particles
+        spawnParts(e.x+e.w/2, e.y+e.h/2, '#ff8800', 10, 5);
+        spawnParts(e.x+e.w/2, e.y+e.h/2, '#ffdd44', 6, 4);
+      }
+    }
+    // Also slap boss if close enough
+    if(boss && boss.alive && overlap(slapBox, boss)){
+      damageBoss(3);
+      boss.vx = p.facing * 8; boss.vy = -5;
+      spawnParts(boss.x+boss.w/2, boss.y+boss.h/2, '#ff4400', 12, 5);
+    }
+    // Slap sound effect via particle flash
+    spawnParts(slapX + (p.facing>0?40:24), p.y+p.h/2, '#ffffff', 8, 6);
+  }
+
+  const hasDrag = p.ability==='dragon';
+  const hasGrow = p.ability==='grow';
+  // Sync hitbox size with grow state
+  p.w = hasGrow ? 38 : 26;
+  p.h = hasGrow ? 42 : 28;
+  let spd = WALK;
+  if(p.ability==='speed')  spd = WALK*SPD_BOOST;
+  if(p.ability==='fly')    spd = FLY_SPD;
+  if(hasGrow)              spd = WALK*0.8;
+  if(hasDrag)              spd = DRAG_SPD;
+
+  let mov=false;
+  if(keys['ArrowLeft']||keys['KeyA']){  p.vx=-spd; p.facing=-1; mov=true; }
+  else if(keys['ArrowRight']||keys['KeyD']){ p.vx=spd; p.facing=1; mov=true; }
+  else{ p.vx*=0.7; if(Math.abs(p.vx)<0.2)p.vx=0; }
+
+  if(p.ability==='fly'){
+    if(keys['ArrowUp']||keys['KeyW']||keys['Space']){
+      p.vy = -FLY_SPD*0.85;
+      p.flyFuel = Math.max(0, p.flyFuel-1.2);
+      fireParts(p.x+p.w/2, p.y+p.h);
+      if(p.flyFuel<=0) loseAbility();
+    } else { p.vy += GRAVITY*0.35; }
+  } else if(hasDrag){
+    if(keys['ArrowUp']||keys['KeyW']||keys['Space']){
+      if(p.vy > -DRAG_SPD*0.8) p.vy -= 0.9;
+      if(!p.infiniteDrag){ p.dragFuel = Math.max(0, p.dragFuel-0.8); if(p.dragFuel<=0) loseAbility(); }
+      else p.dragFuel = 300; // keep bar full for infinite mode
+    } else { p.vy += GRAVITY*0.25; }
+    p.vy = clamp(p.vy, -DRAG_SPD, DRAG_SPD);
+  } else {
+    p.vy += GRAVITY;
+    if((just('ArrowUp')||just('KeyW')||just('Space')) && p.onGround){
+      p.vy = hasGrow ? JUMP*1.15 : JUMP; spawnParts(p.x+p.w/2, p.y+p.h, P.creamDk, 4, 2);
+    }
+  }
+
+  p.x += p.vx; p.y += p.vy;
+  if(bossArenaMode){
+    // Lock player inside colosseum walls
+    p.x = clamp(p.x, bossArenaX-70, bossArenaX+560-p.w);
+  } else {
+    p.x = clamp(p.x, 0, levelW-p.w);
+    // Trigger boss colosseum intro
+    if(boss && boss.dormant && p.x > bossArenaX - 280){
+      gs='bossIntro'; bossIntroTimer=0;
+      camX = bossArenaCamX; // snap camera to arena
+    }
+  }
+  if(p.y > BASE_H+60){ hitPlayer(); return; }
+
+  p.onGround = false;
+  for(const pl of platforms){
+    if(pl.x > p.x+p.w+2) break;
+    // Goal — trigger on any horizontal overlap (walk in through the side)
+    if(pl.isGoal && overlap(p,pl)){
+      if(boss && boss.alive){ shake(8); continue; }
+      if(!p.crawlingIn){ p.crawlingIn=true; p.crawlTimer=0; p.crawlTargetX=pl.x+pl.w/2-p.w/2; }
+      continue;
+    }
+    if(overlap(p,pl) && landOn(p,pl)){
+      p.y = pl.y-p.h; p.vy=0; p.onGround=true;
+    }
+  }
+
+  // Crawl-in animation
+  if(p.crawlingIn){
+    p.crawlTimer=(p.crawlTimer||0)+1;
+    p.vx = (p.crawlTargetX - p.x) * 0.18; // slide toward door center
+    p.vy = 0;
+    p.facing = 1;
+    if(p.crawlTimer > 55) nextLevel();
+    return;
+  }
+
+  // Volcano lava death zone (level 5 boss arena)
+  if(bossArenaMode && level===5 && p.y >= 412){ hitPlayer(); return; }
+
+  // Bone block — land on top
+  for(const bone of boneBlocks){
+    if(overlap(p,bone) && landOn(p,bone)){
+      p.y = bone.y - p.h; p.vy=0; p.onGround=true;
+    }
+  }
+  // Bone block — hit from below while jumping
+  if(p.vy < 0){
+    for(const bone of boneBlocks){
+      if(bone.hit) continue;
+      // Head (top of player) crosses bone's bottom edge from below
+      const headY  = p.y;
+      const feetY  = p.y + p.h;
+      const boneBot= bone.y + bone.h;
+      if(p.x + p.w > bone.x + 3 && p.x < bone.x + bone.w - 3 &&
+         headY <= boneBot + 2 && feetY > boneBot){
+        hitBone(bone); p.vy = 2; break;
+      }
+    }
+  }
+
+  p.vy = clamp(p.vy, -20, 15);
+
+  if(mov&&p.onGround){ p.walkT++; if(p.walkT>6){p.walkT=0;p.walkF=(p.walkF+1)%4;} }
+  else if(!mov) p.walkF=0;
+
+  // Shoot
+  if((p.ability==='fire'||hasDrag) && (keys['KeyZ']||keys['KeyX']||keys['ShiftLeft']||keys['ShiftRight']) && p.shootCd<=0){
+    const bx = p.facing>0 ? p.x+p.w : p.x-18;
+    fireball(bx, p.y+p.h*0.4, p.facing, false, hasDrag);
+    fireParts(bx, p.y+p.h*0.4);
+    p.shootCd = hasDrag ? 8 : 14;
+  }
+
+  for(const pk of pickups)    { if(pk.alive&&overlap(p,pk)){ grabPU(pk); break; } }
+  for(const ds of dragonSpots){ if(ds.alive&&Math.abs(p.x+p.w/2-(ds.x+ds.w/2))<46&&Math.abs(p.y+p.h/2-(ds.y+ds.h/2))<38){ grabDragon(ds); break; } }
+
+  if(p.invTmr<=0){
+    for(const e of enemies){
+      if(!e.alive)continue;
+      if(overlap(p,e)){
+        // Grown Rex stomps any enemy; normal Rex can't stomp armored
+        const canStomp = p.vy>1 && p.y+p.h < e.y+e.h*0.55+4;
+        const armoredBlock = e.kind==='armored' && !hasGrow;
+        if(canStomp && !armoredBlock){ killEnemy(e); p.vy=JUMP*(hasGrow?0.7:0.55); score+=hasGrow?200:100; }
+        else if(!canStomp){ hitPlayer(); return; }
+      }
+    }
+  }
+}
+
+function loseAbility(){
+  collectParts(player.x+player.w/2, player.y+player.h/2, P.grayLight);
+  player.ability=null; player.flyFuel=100; player.dragFuel=300;
+  player.w=26; player.h=28;
+}
+function hitPlayer(){
+  const p=player; if(p.invTmr>0)return; shake(18);
+  if(p.ability==='dragon'){
+    collectParts(p.x+p.w/2, p.y, P.dFire); collectParts(p.x+p.w/2, p.y, P.dGoldL);
+    p.ability=null; p.invTmr=80; return;
+  }
+  if(p.ability){
+    const cc={speed:P.sCyan,fire:P.fFire,fly:P.fPurp};
+    collectParts(p.x+p.w/2, p.y+p.h/2, cc[p.ability]||P.yellow);
+    loseAbility(); p.invTmr=70; return;
+  }
+  lives--;
+  hitParts(p.x+p.w/2, p.y+p.h/2);
+  if(lives<=0){ p.dead=true; p.deadTmr=0; setTimeout(()=>{gs='gameover';},1400); }
+  else { p.vy=JUMP*0.45; p.vx=-p.facing*3; p.invTmr=100; }
+}
+function respawn(){
+  const p=player; p.dead=false; p.deadTmr=0;
+  p.x=clamp(camX+80,40,levelW-100); p.y=200;
+  p.vx=0; p.vy=0; p.ability=null; p.flyFuel=100; p.dragFuel=300; p.invTmr=120;
+}
+function hitBone(bone){
+  bone.hit=true; bone.hitAnim=12;
+  const cc={speed:P.sCyan,fire:P.fFire,fly:P.fPurp,life:P.green};
+  spawnParts(bone.x+10, bone.y, P.brownLight||'#a88048', 6, 3);
+  spawnParts(bone.x+10, bone.y, cc[bone.kind]||P.yellow, 8, 4);
+  shake(6);
+  // Spawn the upgrade flying upward from the bone
+  pickups.push({x:bone.x+2, y:bone.y-16, w:16, h:16, kind:bone.kind,
+                alive:true, bob:0, vy:-5, popped:true});
+}
+function grabPU(pk){
+  pk.alive=false;
+  if(pk.kind==='life'){ lives=Math.min(5,lives+1); collectParts(pk.x+8,pk.y+8,P.green); score+=500; return; }
+  player.ability=pk.kind; player.flyFuel=100; player.dragFuel=300; score+=200;
+  const cc={speed:P.sCyan,fire:P.fFire,fly:P.fPurp};
+  collectParts(pk.x+8, pk.y+8, cc[pk.kind]||P.yellow);
+}
+function grabDragon(ds){
+  ds.alive=false; player.ability='dragon'; player.dragFuel=300; score+=3000;
+  shake(16); collectParts(ds.x+ds.w/2,ds.y+ds.h/2,P.dFire); collectParts(ds.x+ds.w/2,ds.y+ds.h/2,P.dGoldL);
+}
+function killEnemy(e){
+  e.alive=false; hitParts(e.x+e.w/2, e.y+e.h/2);
+  score += e.kind==='armored'?300:100;
+}
+// ════════════════════════════════════════════════════════════
+// BOSS — UPDATE
+// ════════════════════════════════════════════════════════════
+function updateBoss(){
+  if(!boss||!boss.alive||boss.dormant)return;
+  const b=boss; if(b.invTmr>0)b.invTmr--;
+
+  // Phase 2 when below 50% hp; phase 3 (limping) when below 25% hp (Dark Claw only)
+  if(b.hp <= b.maxHp*0.5) b.phase=2;
+  if(b.kind==='ironclaw' && b.hp <= b.maxHp*0.25) b.phase=3;
+
+  // Movement — patrol + charge
+  const spd = b.phase===3 ? 0.7 : b.phase===2 ? 2.2 : 1.4;
+  b.vy += GRAVITY; b.vy=clamp(b.vy,-20,14);
+  b.x += b.vx*(b.phase===3?1:b.phase===2?1.5:1); b.y += b.vy;
+  b.onGround=false;
+  for(const pl of platforms){
+    if(pl.x>b.x+b.w+2)break;
+    if(overlap(b,pl)&&landOn(b,pl)){ b.y=pl.y-b.h; b.vy=0; b.onGround=true; }
+  }
+  if(b.x<b.pmin){b.x=b.pmin;b.vx=spd;}
+  if(b.x+b.w>b.pmax){b.x=b.pmax-b.w;b.vx=-spd;}
+  b.facing=b.vx>0?1:-1;
+  b.walkT++; if(b.walkT>8){b.walkT=0;b.walkF=(b.walkF+1)%4;}
+
+  // Shoot at player
+  b.shootCd--;
+  if(b.shootCd<=0){
+    const cd = b.phase===2 ? 55 : 90;
+    b.shootCd = cd + Math.random()*40;
+    const bx=b.x+b.w/2, by=b.y+b.h*0.4;
+    if(b.kind==='mech'){
+      // Dr. Whiskers on lava dragon — lobs arcing lava balls
+      const dir = player.x > b.x ? 1 : -1;
+      const dist = Math.abs(player.x - b.x);
+      const lavVx = dir * (2.5 + Math.random());
+      const lavVy = -(3 + dist * 0.004 + Math.random());
+      bullets.push({x:bx,y:by,w:14,h:14,vx:lavVx,vy:lavVy,isEnemy:true,alive:true,big:false,age:0,isLavaBall:true});
+      if(b.phase===2){
+        // Phase 2: lob a second lava ball slightly offset
+        bullets.push({x:bx,y:by,w:14,h:14,vx:lavVx*1.1,vy:lavVy-1,isEnemy:true,alive:true,big:false,age:0,isLavaBall:true});
+      }
+    } else {
+      // Dark Claw fires 1 aimed projectile
+      fireball(bx,by,player.x>b.x?1:-1,true,false);
+    }
+    spawnParts(bx,by,b.kind==='mech'?P.lava:P.fPurp,5,3);
+  }
+
+  // Phase 2 jump toward player (disabled in phase 3 — too tired to jump)
+  if(b.phase===2&&b.onGround&&Math.random()<0.015){
+    b.vy=JUMP*1.1; spawnParts(b.x+b.w/2,b.y+b.h,P.redDark,6,3);
+  }
+
+  // Hurt player on contact
+  if(player.invTmr<=0&&overlap(player,b)) hitPlayer();
+
+  // Player stomps boss head
+  if(player.vy>1&&player.y+player.h<b.y+12&&overlap(player,b)){
+    damageBoss(2); player.vy=JUMP*0.6;
+  }
+
+  // Bullets hit boss
+  for(const bl of bullets){
+    if(!bl.alive||bl.isEnemy)continue;
+    if(overlap(bl,b)){ bl.alive=false; damageBoss(bl.big?4:1); fireParts(bl.x,bl.y); }
+  }
+
+  if(b.y>BASE_H+80) b.alive=false; // fell off
+}
+function damageBoss(dmg){
+  const b=boss; if(!b||!b.alive||b.invTmr>0)return;
+  b.hp=Math.max(0,b.hp-dmg); b.invTmr=12; shake(10);
+  spawnParts(b.x+b.w/2,b.y+b.h/2,P.red,6,4);
+  if(b.hp<=0){
+    b.alive=false; score+=5000*level; bossArenaMode=false;
+    for(let i=0;i<5;i++) spawnParts(b.x+Math.random()*b.w,b.y+Math.random()*b.h,P.orange,10,5);
+    shake(30);
+    // Drop a life pickup as reward
+    pickups.push({x:b.x+b.w/2-8,y:b.y-20,w:16,h:16,kind:'life',alive:true,bob:0,vy:-5,popped:true});
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// BOSS — DRAW
+// ════════════════════════════════════════════════════════════
+function drawBoss(){
+  if(!boss||!boss.alive)return;
+  const b=boss;
+  const sx=b.x-camX; if(sx<-100||sx>BASE_W+100)return;
+  const flash=b.invTmr>0&&Math.floor(b.invTmr/3)%2===0;
+  ctx.save();
+  if(flash){ctx.globalAlpha=0.4;}
+  if(b.facing<0){ctx.translate(S(sx+b.w/2),0);ctx.scale(-1,1);ctx.translate(-S(sx+b.w/2),0);}
+
+  if(b.kind==='ironclaw'){
+    // DARK CLAW — giant armored cat boss, black & purple
+    const cx=sx, cy=b.y, cw=b.w, ch=b.h;
+    const lo=[0,2,0,-2][b.walkF%4];
+    const eyeGlow=0.8+Math.sin(frame*0.2)*0.2;
+
+    // Purple aura (behind everything)
+    ctx.fillStyle=`rgba(160,0,255,${0.13+Math.sin(frame*0.12)*0.07})`;
+    ctx.fillRect(S(cx-12),S(cy-58),S(cw+24),S(ch+66));
+
+    // === TAIL (behind body, curves up) ===
+    SR(cx+cw-2, cy+ch-6,   10, 5, '#330055');
+    SR(cx+cw+6, cy+ch-16,  5, 12, '#330055');
+    SR(cx+cw+8, cy+ch-28,  5, 14, '#440088');
+    SR(cx+cw+6, cy+ch-40,  7,  14,'#440088');
+    SR(cx+cw+2, cy+ch-50,  9,  12,'#5500aa');
+    SR(cx+cw,   cy+ch-56,  8,   8,'#7700cc'); // tail tip curl
+    SR(cx+cw-2, cy+ch-60,  6,   6,'#aa44ff');
+    SR(cx+cw+4, cy+ch-56,  6,   6,'#aa44ff');
+
+    // === BODY (armored torso) ===
+    SR(cx+10, cy,     cw-20,ch,   '#1a0030');
+    SR(cx+12, cy+2,   cw-24,ch-4, '#2e0052');
+    // Chest plate
+    SR(cx+14, cy+6,   cw-28,ch/3, '#6600bb');
+    SR(cx+14, cy+6,   cw-28,3,    '#aa00ff');
+    SR(cx+16, cy+10,  cw-32,2,    '#cc66ff');
+    // Body outline
+    SR(cx+10, cy,     cw-20,2,   '#aa00ff');
+    SR(cx+10, cy+ch-2,cw-20,2,   '#aa00ff');
+    SR(cx+10, cy,     2,  ch,    '#aa00ff');
+    SR(cx+cw-12,cy,   2,  ch,    '#aa00ff');
+
+    // === SHOULDER PADS ===
+    SR(cx+2,    cy+4, 12, 18, '#1a0030');
+    SR(cx+4,    cy+6,  8, 14, '#440088');
+    SR(cx+2,    cy+4, 12,  2, '#cc44ff');
+    SR(cx+cw-14,cy+4, 12, 18, '#1a0030');
+    SR(cx+cw-12,cy+6,  8, 14, '#440088');
+    SR(cx+cw-14,cy+4, 12,  2, '#cc44ff');
+
+    // === LEGS & CAT PAWS ===
+    SR(cx+10,    cy+ch-2+lo, 14, 10,'#1a0030');
+    SR(cx+12,    cy+ch+6+lo,  4,  5,'#cc44ff'); // toe 1
+    SR(cx+16,    cy+ch+8+lo,  4,  5,'#cc44ff'); // toe 2
+    SR(cx+20,    cy+ch+6+lo,  4,  5,'#cc44ff'); // toe 3
+    SR(cx+cw-24, cy+ch-2-lo, 14, 10,'#1a0030');
+    SR(cx+cw-22, cy+ch+6-lo,  4,  5,'#cc44ff');
+    SR(cx+cw-18, cy+ch+8-lo,  4,  5,'#cc44ff');
+    SR(cx+cw-14, cy+ch+6-lo,  4,  5,'#cc44ff');
+
+    // === HEAD (wide round cat head — wider than body) ===
+    SR(cx+2,  cy-32, cw-4, 32, '#1a0030');
+    SR(cx+4,  cy-30, cw-8, 28, '#2e0052');
+    // Head outline
+    SR(cx+2,  cy-32, cw-4,  2, '#aa00ff');
+    SR(cx+2,  cy-32, 2,    32, '#aa00ff');
+    SR(cx+cw-4,cy-32,2,   32, '#aa00ff');
+
+    // === EARS — tall sharp triangles (the key to looking like a cat!) ===
+    // Left ear — stacked shrinking rects to make a triangle
+    SR(cx+3,  cy-36, 16,  4, '#2a0044'); SR(cx+3, cy-36, 16, 2, '#cc44ff');
+    SR(cx+5,  cy-40, 12,  4, '#2a0044');
+    SR(cx+7,  cy-44,  8,  4, '#330055');
+    SR(cx+9,  cy-48,  4,  4, '#440088');
+    SR(cx+10, cy-52,  2,  4, '#7700cc'); // ear tip
+    // Left ear inner (bright)
+    SR(cx+7,  cy-38,  6,  6, '#8800dd');
+    SR(cx+8,  cy-42,  4,  4, '#9900ee');
+    SR(cx+9,  cy-46,  2,  3, '#bb44ff');
+    // Right ear
+    SR(cx+cw-19,cy-36,16, 4, '#2a0044'); SR(cx+cw-19,cy-36,16,2,'#cc44ff');
+    SR(cx+cw-17,cy-40,12, 4, '#2a0044');
+    SR(cx+cw-15,cy-44, 8, 4, '#330055');
+    SR(cx+cw-13,cy-48, 4, 4, '#440088');
+    SR(cx+cw-12,cy-52, 2, 4, '#7700cc');
+    SR(cx+cw-13,cy-38, 6, 6, '#8800dd');
+    SR(cx+cw-12,cy-42, 4, 4, '#9900ee');
+    SR(cx+cw-11,cy-46, 2, 3, '#bb44ff');
+
+    // === EYES — wide cat eyes with vertical slit pupils ===
+    ctx.fillStyle=`rgba(210,0,255,${eyeGlow})`;
+    ctx.fillRect(S(cx+7), S(cy-24), S(14), S(8));
+    SR(cx+8, cy-23, 12, 6, '#ee00ff');
+    SR(cx+13,cy-24,  3, 8, '#000000'); // slit pupil
+    SR(cx+12,cy-22,  2, 4, '#ffffff'); // highlight
+    ctx.fillStyle=`rgba(210,0,255,${eyeGlow})`;
+    ctx.fillRect(S(cx+cw-21),S(cy-24),S(14),S(8));
+    SR(cx+cw-20,cy-23,12, 6,'#ee00ff');
+    SR(cx+cw-12,cy-24, 3, 8,'#000000');
+    SR(cx+cw-13,cy-22, 2, 4,'#ffffff');
+
+    // === MUZZLE (round cat muzzle with cheek puffs) ===
+    SR(cx+cw/2-10,cy-18,20,14,'#3a0066');
+    SR(cx+cw/2-12,cy-14,10, 8,'#441177'); // left cheek
+    SR(cx+cw/2+ 2,cy-14,10, 8,'#441177'); // right cheek
+
+    // === NOSE (small pink triangle) ===
+    SR(cx+cw/2-3,cy-18, 6, 2,'#ff44cc');
+    SR(cx+cw/2-2,cy-16, 4, 2,'#ff66dd');
+    SR(cx+cw/2-1,cy-14, 2, 2,'#ff88ee');
+
+    // === MOUTH & FANGS ===
+    SR(cx+cw/2-5,cy-12,10, 2,'#880033'); // mouth line
+    SR(cx+cw/2-4,cy-10, 2, 6,'#ffffff'); // left fang
+    SR(cx+cw/2+2, cy-10, 2, 6,'#ffffff'); // right fang
+
+    // === WHISKERS (6 total — the most important cat feature!) ===
+    SR(cx-10, cy-18, 16, 1, '#dd88ff');
+    SR(cx-8,  cy-15, 14, 1, '#dd88ff');
+    SR(cx-10, cy-12, 16, 1, '#dd88ff');
+    SR(cx+cw-6, cy-18, 16, 1, '#dd88ff');
+    SR(cx+cw-6, cy-15, 14, 1, '#dd88ff');
+    SR(cx+cw-6, cy-12, 16, 1, '#dd88ff');
+
+    // Name tag
+    if(Math.floor(frame/30)%2===0||b.hp<b.maxHp){
+      drawText('DARK CLAW',sx+b.w/2,b.y-60,'#cc44ff',7,'center');
+    }
+  } else {
+    // DR. WHISKERS riding a lava dragon
+    const cx=sx, cy=b.y, cw=b.w, ch=b.h;
+    const wf = Math.sin(frame*0.3)*12; // wing flap
+
+    // === LAVA DRAGON — big, clearly a dragon in flight ===
+    // Dragon center pivot
+    const dbx=cx+10, dby=cy+ch-10;
+
+    // Tail (3 tapering segments behind)
+    SR(dbx-12,dby+4, 14,7,'#aa2200');
+    SR(dbx-22,dby+8, 10,5,'#cc3300');
+    SR(dbx-30,dby+12, 6,4,'#ff4400');
+
+    // Main body (wide, round — clearly not a snail)
+    SR(dbx,   dby-6, 52,18,'#881800');
+    SR(dbx+2, dby-8, 48,16,'#aa2200');
+    // Scale row on top of body
+    for(let si=0;si<4;si++) SR(dbx+6+si*12,dby-10,8,5,'#cc3300');
+
+    // LEFT WING — large triangular wing pointing UP-LEFT
+    ctx.save();
+    ctx.fillStyle='#cc2200';
+    ctx.beginPath();
+    ctx.moveTo(S(dbx+10),S(dby-6));
+    ctx.lineTo(S(dbx-22),S(dby-52+wf));
+    ctx.lineTo(S(dbx+4), S(dby-28));
+    ctx.lineTo(S(dbx+22),S(dby-6));
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#ff4400';
+    ctx.beginPath();
+    ctx.moveTo(S(dbx+13),S(dby-7));
+    ctx.lineTo(S(dbx-6), S(dby-38+wf));
+    ctx.lineTo(S(dbx+20),S(dby-7));
+    ctx.closePath(); ctx.fill();
+
+    // RIGHT WING — large triangular wing pointing UP-RIGHT
+    ctx.fillStyle='#cc2200';
+    ctx.beginPath();
+    ctx.moveTo(S(dbx+40),S(dby-6));
+    ctx.lineTo(S(dbx+74),S(dby-52-wf));
+    ctx.lineTo(S(dbx+48),S(dby-28));
+    ctx.lineTo(S(dbx+30),S(dby-6));
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#ff4400';
+    ctx.beginPath();
+    ctx.moveTo(S(dbx+38),S(dby-7));
+    ctx.lineTo(S(dbx+58),S(dby-38-wf));
+    ctx.lineTo(S(dbx+34),S(dby-7));
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+
+    // Neck — angled diagonally up-right
+    SR(dbx+46,dby-14, 12,10,'#aa2200');
+    SR(dbx+54,dby-22, 12,10,'#cc3300');
+    SR(dbx+62,dby-30, 10, 8,'#cc3300');
+
+    // Head — clearly a dragon head (wide jaw)
+    SR(dbx+68,dby-38, 20,14,'#aa2200');
+    SR(dbx+70,dby-40, 16,12,'#cc3300');
+    // Horns on head
+    SR(dbx+72,dby-46,  3, 8,'#661100');
+    SR(dbx+78,dby-44,  3, 6,'#661100');
+    // Eye glow (orange)
+    const eyeG=0.7+Math.sin(frame*0.3)*0.3;
+    ctx.fillStyle=`rgba(255,160,0,${eyeG})`; ctx.fillRect(S(dbx+72),S(dby-36),S(5),S(5));
+    // Lower jaw / snout
+    SR(dbx+76,dby-28, 16, 6,'#881800');
+    // Fire breath from mouth
+    for(let fi=0;fi<5;fi++){
+      const fa=(frame*0.18+fi*0.22)%1;
+      ctx.globalAlpha=0.6+Math.sin(fa*Math.PI)*0.35;
+      ctx.fillStyle=fi%2===0?'#ff6600':'#ffcc00';
+      ctx.fillRect(S(dbx+92+fi*10),S(dby-27+Math.sin(fa*5+fi)*5),S(10),S(6));
+    }
+    ctx.globalAlpha=1;
+
+    // Feet/claws
+    SR(dbx+8, dby+10, 10,6,'#661400'); SR(dbx+6, dby+14,  4,4,'#441000');
+    SR(dbx+34,dby+10, 10,6,'#661400'); SR(dbx+32,dby+14,  4,4,'#441000');
+
+    // === DR. WHISKERS — gray cat with small TRIANGLE ears, goggles, white coat ===
+    const wrx=dbx+16, wry=dby-48;
+
+    // Lab coat body
+    SR(wrx+1, wry+12, 16,16,'#eeeeee');
+    SR(wrx+3, wry+14, 12,12,'#ffffff');
+    // Arms
+    SR(wrx-3, wry+14,  6, 9,'#eeeeee'); SR(wrx-4,wry+21,  5,4,'#c8a070');
+    SR(wrx+17,wry+14,  6, 9,'#eeeeee'); SR(wrx+18,wry+21, 5,4,'#c8a070');
+
+    // Head — round, cat-sized
+    SR(wrx+1, wry+2,  16,12,'#a09060');
+    SR(wrx+3, wry+3,  12,10,'#c0a870');
+
+    // EARS — wide flat triangles at the outer TOP CORNERS (cat, not bunny)
+    // Left ear: sits on top-left corner of head, wider than tall
+    SR(wrx+1, wry+1,   6, 3,'#a09060'); // ear base (wide)
+    SR(wrx+2, wry-1,   4, 2,'#a09060'); // ear mid
+    SR(wrx+3, wry-2,   2, 1,'#a09060'); // ear tip (tiny)
+    SR(wrx+2, wry+1,   3, 2,'#e08080'); // inner pink (small)
+    // Right ear: sits on top-right corner
+    SR(wrx+11,wry+1,   6, 3,'#a09060');
+    SR(wrx+12,wry-1,   4, 2,'#a09060');
+    SR(wrx+13,wry-2,   2, 1,'#a09060');
+    SR(wrx+13,wry+1,   3, 2,'#e08080');
+
+    // Goggles with slit pupils
+    SR(wrx+2, wry+5,  5,4,'#335577'); SR(wrx+3,wry+6, 3,2,'#6699cc'); // left lens
+    SR(wrx+11,wry+5,  5,4,'#335577'); SR(wrx+12,wry+6,3,2,'#6699cc'); // right lens
+    SR(wrx+7, wry+6,  4,2,'#222222'); // bridge
+    // Slit pupils
+    SR(wrx+4, wry+5,  1,4,'#000000');
+    SR(wrx+13,wry+5,  1,4,'#000000');
+
+    // Nose + mouth
+    SR(wrx+8, wry+9,  2,1,'#ff7777');
+    // Whiskers (short, 2 per side — cat not bunny)
+    SR(wrx-3,wry+9,  6,1,'#999999'); SR(wrx-3,wry+11, 5,1,'#999999');
+    SR(wrx+15,wry+9, 6,1,'#999999'); SR(wrx+15,wry+11,5,1,'#999999');
+
+    // Phase 2 rage
+    if(b.phase===2){
+      ctx.fillStyle=`rgba(255,60,0,${0.22+Math.sin(frame*0.3)*0.12})`; ctx.fillRect(S(cx-4),S(cy-10),S(cw+90),S(ch+30));
+    }
+    // Name
+    if(Math.floor(frame/30)%2===0||b.hp<b.maxHp){
+      drawText('DR. WHISKERS',sx+b.w/2,b.y-58,'#ff4040',7,'center');
+    }
+  }
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════════════════════
+// BOSS — HUD BAR
+// ════════════════════════════════════════════════════════════
+function drawBossHUD(){
+  if(!boss||!boss.alive)return;
+  const b=boss;
+  const barW=300, barH=14, bx=BASE_W/2-barW/2, by=BASE_H-26;
+  const pct=b.hp/b.maxHp;
+  const col=b.kind==='mech'?P.red:'#cc00ff';
+  const name=b.kind==='ironclaw'?'DARK CLAW':'DR. WHISKERS';
+  SR(bx-2,by-14,barW+4,barH+16,'rgba(0,0,0,0.75)');
+  ctx.strokeStyle=col; ctx.lineWidth=S(1);
+  ctx.strokeRect(S(bx-2)+0.5,S(by-14)+0.5,S(barW+4),S(barH+16));
+  drawText(name,BASE_W/2,by-4,col,6,'center');
+  SR(bx,by,barW,barH,'#1a0010');
+  SR(bx,by,barW*pct,barH,col);
+  // Damage flash segments
+  const segs=b.maxHp/5;
+  for(let i=1;i<segs;i++) SR(bx+barW*i/segs-1,by,2,barH,'rgba(0,0,0,0.4)');
+  SR(bx,by,barW*pct,3,'rgba(255,255,255,0.25)');
+}
+
+function nextLevel(){
+  score += 1000*level; level++;
+  gs = 'levelDone'; levelDoneTimer=0;
+  if(level>5){ livesAtEnd=lives; }
+}
+
+// ════════════════════════════════════════════════════════════
+// UPDATE — ENEMIES
+// ════════════════════════════════════════════════════════════
+function updateEnemies(){
+  for(const e of enemies){
+    if(!e.alive)continue;
+    e.vy += GRAVITY; e.vy=clamp(e.vy,-20,18);
+    e.x+=e.vx; e.y+=e.vy;
+    if(e.spinning){
+      e.spinAngle=(e.spinAngle||0)+e.spinSpeed;
+      // No platform landing while spinning off screen — just kill when gone
+      if(e.x<camX-200||e.x>camX+BASE_W+200||e.y>BASE_H+120) e.alive=false;
+      continue;
+    }
+    e.onGround=false;
+    for(const pl of platforms){
+      if(pl.x>e.x+e.w+2)break;
+      if(overlap(e,pl)&&landOn(e,pl)){ e.y=pl.y-e.h; e.vy=0; e.onGround=true; }
+    }
+    if(e.y>BASE_H+80){e.alive=false;continue;}
+    if(e.x<e.pmin||e.x+e.w>e.pmax) e.vx=-e.vx;
+    e.facing=e.vx>0?1:-1;
+    if(e.kind==='laser'){
+      e.shootCd--;
+      if(e.shootCd<=0){ e.shootCd=300; fireball(e.x+e.w/2,e.y+e.h*0.4,player.x>e.x?1:-1,true,false); }
+    }
+    e.walkT++; if(e.walkT>8){e.walkT=0; e.walkF=((e.walkF||0)+1)%4;}
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// UPDATE — BULLETS / PARTICLES / PICKUPS / CAMERA / SHAKE
+// ════════════════════════════════════════════════════════════
+function updateBullets(){
+  for(const b of bullets){
+    if(!b.alive)continue;
+    b.x+=b.vx; b.y+=b.vy; b.age=(b.age||0)+1;
+    if(!b.isEnemy) b.vy+=0.38; // arc gravity for player fireballs
+    if(b.isLavaBall) b.vy+=0.28; // gravity on lava balls
+    if(b.x<camX-120||b.x>camX+BASE_W+120||b.y>BASE_H+60){b.alive=false;continue;}
+    // Platform collision — bounce player fireballs, kill enemy lasers
+    let hitPlat=false;
+    for(const pl of platforms){
+      if(pl.x>b.x+b.w+2)break;
+      if(overlap(b,pl)){
+        if(!b.isEnemy && !b.big && (b.bounces||0)<4 && b.vy>0){
+          // Bounce: flip vy, lose a little energy, keep rolling
+          b.vy = -Math.abs(b.vy)*0.62;
+          b.y  = pl.y - b.h - 1;
+          b.bounces = (b.bounces||0)+1;
+          fireParts(b.x+b.w/2, b.y+b.h);
+        } else {
+          b.alive=false; fireParts(b.x+b.w/2,b.y+b.h/2);
+        }
+        hitPlat=true; break;
+      }
+    }
+    if(hitPlat && !b.alive) continue;
+    if(!b.alive)continue;
+    if(b.isEnemy){
+      if(player.invTmr<=0&&overlap(b,player)){b.alive=false;hitPlayer();}
+    } else {
+      for(const e of enemies){
+        if(!e.alive)continue;
+        if(overlap(b,e)){ b.alive=false; fireParts(e.x+e.w/2,e.y+e.h/2); e.hp--; if(e.hp<=0)killEnemy(e); break; }
+      }
+    }
+  }
+}
+function updateParticles(){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx; p.y+=p.vy; p.vy+=0.12; p.life--;
+    if(p.life<=0)particles.splice(i,1);
+  }
+}
+function updatePickups(){
+  for(const pk of pickups){
+    if(!pk.alive) continue;
+    if(pk.popped){
+      pk.vy += 0.28; // gravity pulls it back down
+      pk.y  += pk.vy;
+      if(pk.vy >= 0){ pk.popped=false; pk.vy=0; } // settled — now just bobs
+    } else {
+      pk.bob += 0.07;
+    }
+  }
+  for(const bone of boneBlocks){ if(bone.hitAnim>0) bone.hitAnim--; }
+  for(const ds of dragonSpots)if(ds.alive){ ds.bobT+=0.045; ds.glowT+=0.09; }
+}
+function updateCamera(){
+  if(bossArenaMode){ camX=bossArenaCamX; return; }
+  const tx=player.x-BASE_W*0.35;
+  camX+=(tx-camX)*0.13;
+  camX=clamp(camX,0,levelW-BASE_W);
+}
+function updateShake(){
+  if(shakeTmr>0){shakeX=(Math.random()-0.5)*7;shakeY=(Math.random()-0.5)*7;shakeTmr--;}
+  else{shakeX=0;shakeY=0;}
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — BACKGROUND
+// ════════════════════════════════════════════════════════════
+function drawBG(){
+  // Dark space gradient — matches original's near-black sky
+  const gr=ctx.createLinearGradient(0,0,0,S(BASE_H));
+  gr.addColorStop(0,'#000008'); gr.addColorStop(0.6,'#050e1a'); gr.addColorStop(1,'#0a1a10');
+  ctx.fillStyle=gr; ctx.fillRect(0,0,canvas.width,canvas.height);
+  // Stars (parallax-scrolling)
+  for(let i=0;i<70;i++){
+    const sx=((i*173+camX*0.12)%BASE_W), sy=(i*61)%(BASE_H*0.58);
+    const blink=0.3+0.5*(i%4===0?1:0.5);
+    ctx.globalAlpha=blink;
+    ctx.fillStyle=i%9===0?'#aaccff':'#ddeeff';
+    ctx.fillRect(S(sx),S(sy),S(i%7===0?2:1),S(i%7===0?2:1));
+  }
+  ctx.globalAlpha=1;
+  // Dark silhouette mountains
+  ctx.fillStyle='#050f18';
+  for(let i=0;i<10;i++){
+    const mx=(i*260-camX*0.10+2200)%((BASE_W+220))-110, mh=45+i%3*28;
+    ctx.beginPath(); ctx.moveTo(S(mx),S(BASE_H)); ctx.lineTo(S(mx+90),S(BASE_H-mh)); ctx.lineTo(S(mx+180),S(BASE_H)); ctx.fill();
+  }
+  // Dark silhouette hills
+  ctx.fillStyle='#060f06';
+  for(let i=0;i<7;i++){
+    const mx=(i*340-camX*0.30+1300)%((BASE_W+300))-150;
+    ctx.beginPath(); ctx.moveTo(S(mx),S(BASE_H)); ctx.lineTo(S(mx+150),S(BASE_H-75)); ctx.lineTo(S(mx+300),S(BASE_H)); ctx.fill();
+  }
+  // Dark tree silhouettes
+  ctx.fillStyle='#040e04';
+  for(let i=0;i<14;i++){
+    const tx=(i*185-camX*0.60+700)%((BASE_W+160))-80, th=26+i%4*14;
+    SR(tx+2,BASE_H-th-18,7,th,'#040e04');
+    ctx.beginPath(); ctx.arc(S(tx+5),S(BASE_H-th-18),S(12+i%3*3),0,Math.PI*2); ctx.fill();
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — PLATFORMS
+// ════════════════════════════════════════════════════════════
+function drawPlatform(pl){
+  const rx=pl.x-camX;
+  if(rx+pl.w<-10||rx>BASE_W+10)return;
+  if(pl.kind==='ground'){
+    if(bossArenaMode && level===5){
+      // Magma/lava ground for volcano arena
+      SR(rx,pl.y+4,pl.w,pl.h-4,'#550800');
+      SR(rx,pl.y,  pl.w,6,      '#881200');
+      SR(rx,pl.y,  pl.w,3,      '#cc2200');
+      // Glowing cracks with animated lava
+      for(let gx=0;gx<pl.w;gx+=16){
+        const glow=0.5+Math.sin(frame*0.1+gx*0.3)*0.4;
+        ctx.globalAlpha=glow;
+        ctx.fillStyle='#ff6600';
+        ctx.fillRect(S(rx+gx+2),S(pl.y-1),S(6),S(3));
+        ctx.fillStyle='#ffaa00';
+        ctx.fillRect(S(rx+gx+4),S(pl.y-1),S(2),S(2));
+        ctx.globalAlpha=1;
+      }
+    } else {
+      SR(rx,pl.y+6,pl.w,pl.h-6,P.groundSub||'#0e200a');
+      SR(rx,pl.y,pl.w,8,P.groundDirt||'#1a3a0a');
+      SR(rx,pl.y,pl.w,4,P.groundTop||'#2a5a10');
+      for(let gx=0;gx<pl.w;gx+=10){
+        SR(rx+gx,pl.y-3,2,5,P.greenDark||'#208020');
+        SR(rx+gx+5,pl.y-2,2,4,P.green);
+      }
+    }
+    return;
+  }
+  if(pl.isGoal){
+    const p=player;
+    // Doghouse sits on the ground — draw from ground up
+    const dw=80, dh=44, groundY=420;
+    const dx=rx, dy=groundY-dh;
+    const cx2=dx+dw/2;
+
+    // ── WALLS (tan wood, side-view planks) ──
+    SR(dx,dy,dw,dh,'#c8904a');
+    for(let pi=0;pi<dh;pi+=8) SR(dx,dy+pi,dw,1,'#a0682a');
+    SR(dx,dy,3,dh,'#a0682a'); SR(dx+dw-3,dy,3,dh,'#7a4018'); // side shading
+
+    // ── DOOR (left side, arched) ──
+    const doorW=22, doorH=30, doorX=dx+6;
+    SR(doorX,dy+dh-doorH,doorW,doorH,'#1a0800');
+    SR(doorX+3,dy+dh-doorH-5,doorW-6,8,'#1a0800');
+    SR(doorX+1,dy+dh-doorH-3,doorW-2,6,'#1a0800');
+    // Door frame trim
+    SR(doorX-2,dy+dh-doorH-5,3,doorH+5,'#7a4018');
+    SR(doorX+doorW-1,dy+dh-doorH-5,3,doorH+5,'#7a4018');
+
+    // ── ROOF (triangular, side-view gable) ──
+    const roofH=22;
+    for(let ri=0;ri<roofH;ri++){
+      const rw=dw+6 - ri*((dw+6)/roofH);
+      SR(dx-3+ri*((dw+6)/roofH/2), dy-ri, rw, 2, ri%4<2?'#8b2020':'#a03030');
+    }
+    SR(cx2-2,dy-roofH,4,4,'#cc4040'); // ridge cap
+
+    // ── SATELLITE DISH on roof ──
+    const dishX=cx2+10, dishBaseY=dy-roofH;
+    // Mast
+    SR(dishX,dishBaseY-18,2,18,'#999999');
+    // Dish bowl (tilted ellipse, pointing up-right)
+    ctx.save();
+    ctx.strokeStyle='#dddddd'; ctx.lineWidth=S(2.5);
+    ctx.beginPath();
+    ctx.ellipse(S(dishX), S(dishBaseY-18), S(14), S(7), -0.5, 0, Math.PI);
+    ctx.stroke();
+    ctx.fillStyle='#cccccc';
+    ctx.beginPath();
+    ctx.ellipse(S(dishX), S(dishBaseY-18), S(13), S(6), -0.5, 0, Math.PI);
+    ctx.fill();
+    // Pointed antenna spike out of dish center
+    ctx.strokeStyle='#aaaaaa'; ctx.lineWidth=S(1.5);
+    ctx.beginPath();
+    ctx.moveTo(S(dishX+6), S(dishBaseY-21));
+    ctx.lineTo(S(dishX+18), S(dishBaseY-34));
+    ctx.stroke();
+    ctx.fillStyle='#ff4444'; // red tip
+    ctx.beginPath(); ctx.arc(S(dishX+18),S(dishBaseY-35),S(2.5),0,Math.PI*2); ctx.fill();
+    // Strut from dish rim to mast
+    ctx.strokeStyle='#999999'; ctx.lineWidth=S(1);
+    ctx.beginPath(); ctx.moveTo(S(dishX),S(dishBaseY-18)); ctx.lineTo(S(dishX+8),S(dishBaseY-24)); ctx.stroke();
+    // Animated signal rings from antenna tip
+    const sig=Math.floor(frame/10)%3;
+    ctx.strokeStyle=`rgba(100,200,255,${0.5+sig*0.15})`; ctx.lineWidth=S(1);
+    for(let wi=0;wi<=sig;wi++){
+      ctx.beginPath();
+      ctx.arc(S(dishX+18),S(dishBaseY-35),S(4+wi*5), -1.2, 0.3);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // "GOAL!" label — only if not crawling in
+    if(!p.crawlingIn && Math.floor(frame/20)%2===0)
+      drawText('GOAL!',cx2-20,dy-roofH-20,P.goldLight||'#f8e060',6);
+
+    // Crawling-in: draw Rex shrinking into the door
+    if(p.crawlingIn){
+      const t=Math.min(p.crawlTimer/50,1);
+      const scale=1-t*0.85;
+      const entX=doorX+doorW/2;
+      const entY=groundY-4;
+      ctx.save();
+      ctx.translate(S(entX),S(entY));
+      ctx.scale(scale,scale);
+      ctx.globalAlpha=1-t*0.9;
+      drawRex(0,0,1,Math.floor(frame/6)%4,'idle');
+      ctx.globalAlpha=1; ctx.restore();
+    }
+    return;
+  }
+  if(pl.kind==='brick'){
+    SR(rx,pl.y,pl.w,pl.h,P.brickMt);
+    const bW=14,bH=9;
+    for(let row=0;row<Math.ceil(pl.h/bH);row++){
+      const off=row%2===0?0:bW/2;
+      for(let col=0;col<=Math.ceil(pl.w/bW)+1;col++){
+        const bx=rx+col*bW-off, by=pl.y+row*bH;
+        ctx.fillStyle=P.brickR; ctx.fillRect(S(bx)+S(1),S(by)+S(1),S(bW-2),S(bH-2));
+        ctx.fillStyle=P.brickL+'88'; ctx.fillRect(S(bx)+S(1),S(by)+S(1),S(bW-2),S(2));
+      }
+    }
+    SR(rx,pl.y,pl.w,2,P.brickL); return;
+  }
+  // Stone
+  SR(rx,pl.y,pl.w,pl.h,P.stoneD); SR(rx,pl.y,pl.w,pl.h-3,P.stoneG); SR(rx,pl.y,pl.w,3,P.stoneL);
+  for(let si=0;si<pl.w;si+=18){ SR(rx+si+3,pl.y+4,1,6,P.stoneD); SR(rx+si+10,pl.y+7,1,4,P.stoneD); }
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — BONE BLOCKS
+// ════════════════════════════════════════════════════════════
+function drawBoneBlock(bone){
+  const rx = bone.x - camX;
+  if(rx < -40 || rx > BASE_W+40) return;
+  const bump = bone.hitAnim > 0 ? -bone.hitAnim : 0;
+  const ry = bone.y + bump;
+  const w = bone.w, h = bone.h; // 30x30
+
+  if(bone.hit){
+    // Used — flat cracked look
+    SR(rx,   ry,   w,   h,   '#2a1a08');
+    SR(rx+2, ry+2, w-4, h-4, '#3a2410');
+    SR(rx+4, ry+4, w-8, 3,   '#4a3018');
+    SR(rx+4, ry+10,w-8, 3,   '#4a3018');
+    // X mark
+    ctx.strokeStyle='#5a3818'; ctx.lineWidth=S(1.5);
+    ctx.beginPath(); ctx.moveTo(S(rx+8),S(ry+8)); ctx.lineTo(S(rx+w-8),S(ry+h-8)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(S(rx+w-8),S(ry+8)); ctx.lineTo(S(rx+8),S(ry+h-8)); ctx.stroke();
+    return;
+  }
+
+  // Pulse glow based on kind
+  const cc={speed:P.sCyan, fire:P.fFire, fly:P.fPurp, life:P.green, grow:'#40dd40'}[bone.kind]||P.yellow;
+  const pulse = 0.12 + Math.abs(Math.sin(frame*0.08))*0.18;
+  ctx.fillStyle = cc; ctx.globalAlpha = pulse;
+  ctx.fillRect(S(rx-4), S(ry-4), S(w+8), S(h+8));
+  ctx.globalAlpha = 1;
+
+  // Outer border (dark brown)
+  SR(rx,   ry,   w,   h,   '#5a2a08');
+  // Main face (warm tan)
+  SR(rx+2, ry+2, w-4, h-4, '#d4882a');
+  // Inner lighter panel
+  SR(rx+3, ry+3, w-6, h-6, '#f0b040');
+  // Top highlight
+  SR(rx+3, ry+3, w-6, 3,   '#f8d070');
+  // Bottom shadow
+  SR(rx+3, ry+h-6, w-6, 3, '#a86020');
+
+  // Dog-bone pixel art (fits in ~22x14 area centered in the 30x30 block)
+  const bx = rx+4, by = ry+8;
+  // Center bar
+  SR(bx+5,  by+3,  12, 5,  '#fffbe8');
+  SR(bx+5,  by+3,  12, 2,  '#ffffff');
+  // Left knob — two overlapping rounded rects
+  SR(bx,    by+1,  7,  11, '#fffbe8');
+  SR(bx+1,  by,    5,  13, '#fffbe8');
+  SR(bx+1,  by,    5,  2,  '#ffffff');
+  SR(bx,    by+10, 7,  2,  '#d4b870');
+  // Right knob
+  SR(bx+15, by+1,  7,  11, '#fffbe8');
+  SR(bx+16, by,    5,  13, '#fffbe8');
+  SR(bx+16, by,    5,  2,  '#ffffff');
+  SR(bx+15, by+10, 7,  2,  '#d4b870');
+
+  // Kind indicator dot in top-right corner
+  SR(rx+w-8, ry+3, 5, 5, cc);
+  SR(rx+w-7, ry+4, 3, 3, '#ffffff');
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — PICKUPS
+// ════════════════════════════════════════════════════════════
+function drawPickup(pk){
+  if(!pk.alive)return;
+  const rx=pk.x-camX;
+  if(rx<-24||rx>BASE_W+24)return;
+  const py = pk.popped ? pk.y : pk.y+Math.sin(pk.bob)*3;
+  const col={speed:P.sCyan,fire:P.fFire,fly:P.fPurp,life:P.green,grow:'#40dd40'}[pk.kind]||P.yellow;
+  ctx.fillStyle=col+'33'; ctx.beginPath(); ctx.arc(S(rx+8),S(py+8),S(14),0,Math.PI*2); ctx.fill();
+  SR(rx,py,16,16,col);
+  ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.fillRect(S(rx+1),S(py+1),S(14),S(5));
+  ctx.save(); ctx.beginPath(); ctx.rect(S(rx),S(py),S(16),S(16)); ctx.clip();
+  if(pk.kind==='speed'){
+    ctx.fillStyle=P.yelBright;
+    ctx.beginPath();
+    ctx.moveTo(S(rx+10),S(py+2)); ctx.lineTo(S(rx+5),S(py+8));
+    ctx.lineTo(S(rx+8),S(py+8)); ctx.lineTo(S(rx+6),S(py+14));
+    ctx.lineTo(S(rx+12),S(py+7)); ctx.lineTo(S(rx+9),S(py+7));
+    ctx.closePath(); ctx.fill();
+  } else if(pk.kind==='fire'){
+    SC(rx+8,py+10,4,P.orange); SC(rx+8,py+7,3,P.yelBright); SC(rx+6,py+9,2,P.fFire); SC(rx+10,py+9,2,P.fFire);
+  } else if(pk.kind==='fly'){
+    SR(rx+2,py+9,5,3,P.creamDk); SR(rx+9,py+9,5,3,P.creamDk);
+    SR(rx+1,py+7,4,4,P.cream);   SR(rx+11,py+7,4,4,P.cream);
+    SC(rx+8,py+9,2,P.fPurp);
+  } else if(pk.kind==='life'){
+    ctx.fillStyle=P.red;
+    ctx.beginPath(); ctx.arc(S(rx+6),S(py+7),S(3),0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(S(rx+10),S(py+7),S(3),0,Math.PI*2); ctx.fill();
+    ctx.fillRect(S(rx+4),S(py+7),S(8),S(5));
+    ctx.beginPath(); ctx.moveTo(S(rx+8),S(py+14)); ctx.lineTo(S(rx+3),S(py+9)); ctx.lineTo(S(rx+13),S(py+9)); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+  // Grow icon — up arrow
+  if(pk.kind==='grow'){
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(S(rx+8),S(py+2)); ctx.lineTo(S(rx+14),S(py+8));
+    ctx.lineTo(S(rx+10),S(py+8)); ctx.lineTo(S(rx+10),S(py+14));
+    ctx.lineTo(S(rx+6), S(py+14)); ctx.lineTo(S(rx+6), S(py+8));
+    ctx.lineTo(S(rx+2), S(py+8));
+    ctx.closePath(); ctx.fill();
+  }
+  const labs={speed:'SPD',fire:'FIRE',fly:'FLY',life:'+1',grow:'BIG'};
+  ctx.font=`${S(5)}px 'Press Start 2P',monospace`; ctx.textAlign='center';
+  ctx.fillStyle=P.black; ctx.fillText(labs[pk.kind]||'',S(rx+8),S(py-2)+S(1));
+  ctx.fillStyle=P.white; ctx.fillText(labs[pk.kind]||'',S(rx+8),S(py-2));
+  ctx.textAlign='left';
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — DRAGON SPOT
+// ════════════════════════════════════════════════════════════
+function drawDragonGfx(rx, ry){
+  const wf = Math.sin(frame*0.28)*7;
+  SR(rx+8, ry+6-wf,14,14,P.dWing);  SR(rx+6, ry+4-wf,6,12,P.dWingL); SR(rx+10,ry+2-wf,10,8,P.dWingL);
+  SR(rx+28,ry+6-wf,14,14,P.dWing);  SR(rx+34,ry+4-wf,6,12,P.dWingL); SR(rx+30,ry+2-wf,10,8,P.dWingL);
+  SR(rx+10,ry+10,28,16,P.dBody); SR(rx+12,ry+8,24,14,P.dBodyL);
+  SR(rx+30,ry+6,10,12,P.dBodyL);
+  SR(rx+36,ry+3,14,12,P.dBodyL); SR(rx+38,ry+5,10,8,P.dBody);
+  SR(rx+46,ry+9,10,6,P.dSnout);  SR(rx+48,ry+11,7,3,P.dBodyL);
+  SR(rx+52,ry+10,2,2,P.black);
+  SR(rx+40,ry+5,4,4,P.yelBright); SR(rx+41,ry+6,2,2,P.black);
+  SR(rx+38,ry+1,2,5,P.dGold); SR(rx+42,ry+0,2,4,P.dGold);
+  SR(rx+14,ry+16,20,8,P.dSnout);
+  SR(rx+2,ry+18,12,6,P.dBodyL); SR(rx+0,ry+22,7,4,P.dBody); SR(rx+0,ry+25,4,3,P.dGold);
+  SR(rx+16,ry+24,7,7,P.dBody); SR(rx+30,ry+24,7,7,P.dBody);
+  SR(rx+14,ry+30,5,2,P.creamDk); SR(rx+17,ry+30,5,2,P.creamDk);
+  SR(rx+28,ry+30,5,2,P.creamDk); SR(rx+31,ry+30,5,2,P.creamDk);
+}
+function drawDragonSpot(ds){
+  if(!ds.alive)return;
+  const rx=ds.x-camX; if(rx<-70||rx>BASE_W+70)return;
+  const ry=ds.y+Math.sin(ds.bobT)*6;
+  const glo=0.4+Math.sin(ds.glowT)*0.35;
+  ctx.fillStyle=`rgba(255,140,0,${glo*0.25})`; ctx.beginPath(); ctx.arc(S(rx+26),S(ry+17),S(36),0,Math.PI*2); ctx.fill();
+  for(let i=0;i<8;i++){
+    const a=i/8*Math.PI*2+frame*0.07;
+    SC(rx+26+Math.cos(a)*22,ry+17+Math.sin(a)*14,1+Math.random()*1.5,Math.random()<0.5?P.dGoldL:P.orange);
+  }
+  ctx.font=`${S(5)}px 'Press Start 2P',monospace`; ctx.textAlign='center';
+  const lc=`hsl(${(frame*4)%360},100%,60%)`;
+  ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillText('SUPER RARE!',S(rx+26),S(ry-12)+S(1));
+  ctx.fillStyle=lc;               ctx.fillText('SUPER RARE!',S(rx+26),S(ry-12));
+  ctx.textAlign='left';
+  drawDragonGfx(rx, ry);
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — PLAYER
+// ════════════════════════════════════════════════════════════
+function drawPlayer(){
+  const p=player;
+  const sx = p.x-camX + p.w/2;   // center-x on screen
+  const sy = p.y + p.h;           // bottom-y on screen
+
+  if(p.dead){
+    ctx.save();
+    ctx.translate(S(sx),S(sy-p.h/2));
+    ctx.rotate(p.deadTmr*0.18);
+    ctx.globalAlpha=Math.max(0,1-p.deadTmr/60);
+    drawRex(0,p.h/2,p.facing,p.walkF,'idle');
+    ctx.restore(); ctx.globalAlpha=1; return;
+  }
+  if(p.invTmr>0&&Math.floor(p.invTmr/5)%2===0)return;
+  if(p.crawlingIn && p.crawlTimer>10)return; // hidden — drawn inside doghouse
+
+  const rx=p.x-camX;
+
+  // Dragon under player
+  if(p.ability==='dragon'){
+    ctx.save();
+    if(p.facing<0){ ctx.translate(S(rx+p.w/2),0); ctx.scale(-1,1); ctx.translate(-S(p.w/2),0); drawDragonGfx(0,p.y-12); }
+    else { ctx.translate(S(rx-12),0); drawDragonGfx(0,p.y-12); }
+    ctx.restore();
+    // Dragon fuel bar
+    const dfpct=p.dragFuel/300;
+    SR(rx-10,p.y-20,52,4,P.dWing); SR(rx-10,p.y-20,52*dfpct,4,P.dFire);
+  }
+  // Ability auras
+  if(p.ability==='speed'){
+    ctx.fillStyle='rgba(0,200,255,0.12)'; ctx.fillRect(S(rx-4),S(p.y-4),S(p.w+8),S(p.h+8));
+    if(Math.abs(p.vx)>1.5){
+      for(let i=0;i<3;i++){
+        const lx=rx-p.facing*(8+i*7);
+        ctx.strokeStyle=P.sCyan+'70'; ctx.lineWidth=S(1);
+        ctx.beginPath(); ctx.moveTo(S(lx),S(p.y+5+i*7)); ctx.lineTo(S(lx-p.facing*10),S(p.y+5+i*7)); ctx.stroke();
+      }
+    }
+  } else if(p.ability==='fly'){
+    ctx.fillStyle='rgba(200,50,255,0.12)'; ctx.fillRect(S(rx-8),S(p.y-4),S(p.w+16),S(p.h+8));
+    const fpct=p.flyFuel/100;
+    SR(rx-4,p.y-12,30,4,P.purpDark); SR(rx-4,p.y-12,30*fpct,4,P.fPurp);
+  } else if(p.ability==='fire'){
+    ctx.fillStyle='rgba(255,80,0,0.10)'; ctx.fillRect(S(rx-2),S(p.y-2),S(p.w+4),S(p.h+4));
+  }
+
+  // Grow slap arm visual
+  if(p.ability==='grow' && p.slapAnim>0){
+    const t = p.slapAnim/14; // 1.0 → 0.0 as anim plays out
+    const ext = t>0.5 ? (1-t)*2 : 1; // extend 0→1 then retract 1→0
+    const armLen = 52 * ext * 1.6;
+    const armDir = p.facing;
+    const armBaseX = S(rx + (armDir>0 ? p.w+2 : -2));
+    const armBaseY = S(p.y + p.h*0.45);
+    const armTipX  = armBaseX + S(armDir * armLen);
+    const armTipY  = armBaseY - S(8 * ext);
+    // Whoosh arc behind arm
+    if(ext > 0.2){
+      ctx.save();
+      ctx.strokeStyle = 'rgba(100,255,80,0.55)';
+      ctx.lineWidth = S(10 * ext);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(armBaseX, armBaseY + S(12));
+      ctx.quadraticCurveTo(armTipX, armBaseY - S(20 * ext), armTipX, armTipY - S(6));
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,200,0.35)';
+      ctx.lineWidth = S(5 * ext);
+      ctx.beginPath();
+      ctx.moveTo(armBaseX, armBaseY + S(10));
+      ctx.quadraticCurveTo(armTipX, armBaseY - S(16 * ext), armTipX, armTipY - S(4));
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Big green paw at tip
+    ctx.save();
+    const pawR = S(14 * ext * 1.6);
+    ctx.fillStyle = '#3a9a3a';
+    ctx.beginPath(); ctx.arc(armTipX, armTipY, pawR, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#5aba5a';
+    ctx.beginPath(); ctx.arc(armTipX - S(armDir*3), armTipY - S(3), pawR*0.65, 0, Math.PI*2); ctx.fill();
+    // Claw marks on impact (early frames)
+    if(t > 0.65){
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = S(2);
+      for(let ci=0;ci<3;ci++){
+        const cx3 = armTipX + S(armDir*(ci*5-5));
+        ctx.beginPath();
+        ctx.moveTo(cx3, armTipY - pawR*0.4);
+        ctx.lineTo(cx3 + S(armDir*4), armTipY + pawR*0.6);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // Draw sprite (ability-tinted or default)
+  if(p.ability){ drawRexAbility(sx, sy, p.facing, p.walkF, p.ability); }
+  else { drawRex(sx, sy, p.facing, p.walkF, 'idle'); }
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — ENEMIES
+// ════════════════════════════════════════════════════════════
+function drawEnemy(e){
+  if(!e.alive)return;
+  const sx=e.x-camX+e.w/2, sy=e.y+e.h;
+  if(sx<-60||sx>BASE_W+60)return;
+  if(e.spinning){
+    // Draw spinning (rotating) cat flying off screen
+    ctx.save();
+    ctx.translate(S(sx), S(e.y+e.h/2));
+    ctx.rotate(e.spinAngle||0);
+    // Motion blur trail
+    ctx.globalAlpha=0.3;
+    ctx.translate(S(-e.vx*1.2), S(-e.vy*0.8));
+    drawEnemyCat(0, 0, e.facing, e.walkF||0, e.kind);
+    ctx.globalAlpha=1;
+    ctx.translate(S(e.vx*1.2), S(e.vy*0.8));
+    drawEnemyCat(0, 0, e.facing, e.walkF||0, e.kind);
+    // Stars around spinning cat
+    for(let i=0;i<4;i++){
+      const sa=(e.spinAngle||0)+i*Math.PI/2;
+      const sd=16+Math.sin((e.spinAngle||0)*3+i)*4;
+      ctx.globalAlpha=0.8;
+      SC(Math.cos(sa)*sd, Math.sin(sa)*sd, 2, '#ffdd44');
+    }
+    ctx.globalAlpha=1;
+    ctx.restore();
+    return;
+  }
+  drawEnemyCat(sx, sy, e.facing, e.walkF||0, e.kind);
+  if(e.kind==='armored'){
+    const pct=e.hp/e.maxhp;
+    SR(e.x-camX,e.y-10,24,3,P.redDark); SR(e.x-camX,e.y-10,24*pct,3,P.green);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — BULLETS / PARTICLES
+// ════════════════════════════════════════════════════════════
+function drawBullets(){
+  for(const b of bullets){
+    if(!b.alive)continue;
+    const rx=b.x-camX;
+    if(b.big){
+      SC(rx+b.w/2,b.y+b.h/2,7,P.dFire); SC(rx+b.w/2,b.y+b.h/2,4,P.dFireL); SC(rx+b.w/2,b.y+b.h/2,2,P.yelBright);
+      ctx.fillStyle=P.orange+'80'; ctx.fillRect(S(rx-b.vx*1.5),S(b.y+1),S(6),S(6));
+    } else if(b.isLavaBall){
+      // Lava ball — glowing molten sphere with drip trail
+      const rx2=b.x-camX, rc=b.w/2;
+      const glow=0.6+Math.sin((b.age||0)*0.25)*0.3;
+      ctx.globalAlpha=glow*0.4; ctx.fillStyle='#ff4400';
+      ctx.beginPath(); ctx.arc(S(rx2+rc),S(b.y+rc),S(rc+4),0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=1;
+      SC(rx2+rc,b.y+rc,rc,'#cc2200'); SC(rx2+rc,b.y+rc,rc-2,'#ff4400'); SC(rx2+rc,b.y+rc,rc-4,'#ffaa00');
+      // Drip trail
+      for(let ti=1;ti<=3;ti++){
+        ctx.globalAlpha=0.4/ti;
+        ctx.fillStyle='#ff6600';
+        ctx.beginPath(); ctx.arc(S(rx2+rc-b.vx*ti*1.4),S(b.y+rc-b.vy*ti*0.5),S(rc-2-ti*1.5),0,Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha=1;
+    } else if(b.isEnemy){
+      // Draw as a glowing laser beam oriented along velocity
+      const angle = Math.atan2(b.vy, b.vx);
+      const len = 20, glow = 0.5+Math.sin((b.age||0)*0.5)*0.3;
+      ctx.save();
+      ctx.translate(S(rx + b.w/2), S(b.y + b.h/2));
+      ctx.rotate(angle);
+      // Outer glow
+      ctx.globalAlpha = glow*0.35;
+      ctx.fillStyle = P.blueLight;
+      ctx.fillRect(-S(len/2+4), -S(5), S(len+8), S(10));
+      // Core beam
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = P.blue;
+      ctx.fillRect(-S(len/2), -S(3), S(len), S(6));
+      ctx.fillStyle = P.blueLight;
+      ctx.fillRect(-S(len/2-1), -S(1.5), S(len-2), S(3));
+      ctx.fillStyle = '#cceeff';
+      ctx.fillRect(-S(len/2-2), -S(0.8), S(len-4), S(1.6));
+      // Bright tip
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(S(len/2-3), -S(1), S(4), S(2));
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    } else {
+      SC(rx+b.w/2,b.y+b.h/2,4,P.orange); SC(rx+b.w/2,b.y+b.h/2,2.5,P.yelLight);
+      ctx.fillStyle=P.orange+'60'; ctx.fillRect(S(rx-b.vx*1.8),S(b.y+1),S(5),S(5));
+    }
+  }
+}
+function drawParticles(){
+  for(const p of particles){
+    ctx.globalAlpha=Math.max(0,p.life/p.maxL);
+    ctx.fillStyle=p.col; ctx.fillRect(S(p.x-camX),S(p.y),S(p.sz),S(p.sz));
+  }
+  ctx.globalAlpha=1;
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — HUD
+// ════════════════════════════════════════════════════════════
+function drawHUD(){
+  drawText('LIVES:',10,14,P.cream,7);
+  for(let i=0;i<lives;i++){
+    SC(76+i*16,9,5,P.red); SC(72+i*16,9,3,P.redDark); SC(80+i*16,9,3,P.redDark); SC(76+i*16,13,4,P.red);
+  }
+  drawText('SCORE:',10,27,P.cream,7);
+  drawText(String(score).padStart(7,'0'),62,27,P.yelLight,7);
+  drawText('LV:'+level, BASE_W-68,14,P.yelLight,7);
+
+  const p=player;
+  if(p.ability){
+    const aL={speed:'SPEED',fire:'FIRE',fly:'FLY',dragon:'DRAGON',grow:'GIANT'};
+    const aC={speed:P.sCyan,fire:P.fFire,fly:P.fPurp,dragon:P.dFire,grow:'#40dd40'};
+    const hint={speed:'[ARROWS/WASD]: FASTER MOVEMENT',fire:'[Z/X/SHIFT]: SHOOT FIREBALLS',fly:'[SPACE]: FLY  [Z/X/SHIFT]: SHOOT',dragon:'[Z/X/SHIFT]: FIRE BREATH',grow:'[X]: SLAP CATS!  [STOMP]: CRUSH'};
+    const col=aC[p.ability]||P.yellow;
+    const hasHint=!!hint[p.ability];
+    const boxW=hasHint?280:90, boxH=hasHint?30:18;
+    SR(BASE_W/2-boxW/2, 2, boxW, boxH, 'rgba(0,0,0,0.7)');
+    ctx.strokeStyle=col; ctx.lineWidth=S(1);
+    ctx.strokeRect(S(BASE_W/2-boxW/2)+0.5, S(2)+0.5, S(boxW)-1, S(boxH)-1);
+    drawText(aL[p.ability], BASE_W/2, hasHint?11:14, col, 7, 'center');
+    if(hasHint) drawText(hint[p.ability], BASE_W/2, 24, col+'bb'||col, 5, 'center');
+  }
+  if(lives===1&&Math.floor(frame/20)%2===0) drawText('LAST LIFE!',BASE_W/2-64,BASE_H-30,P.red,8);
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — COLOSSEUM BACKGROUND (replaces sky during boss fight)
+// ════════════════════════════════════════════════════════════
+function drawColosseum(){
+  const ax = bossArenaX - camX; // arena left edge in screen coords
+  const arenaRight = ax + 560;
+
+  // Ellipse center — below the visible screen so we see just the upper bowl
+  const ECX = BASE_W / 2;   // horizontal center of screen
+  const ECY = BASE_H + 20;  // center below ground
+  const RX  = 430;          // horizontal radius — wider than screen edge
+  const RY  = 460;          // vertical radius — tall bowl
+
+  // Helper: y position on the ellipse at a given x offset from center
+  function ellipseY(dx, rx, ry){ return ECY - ry * Math.sqrt(Math.max(0, 1 - (dx*dx)/(rx*rx))); }
+
+  // ── Dark sky background ──
+  ctx.fillStyle='#120a04'; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // ── Draw colosseum BOWL — concentric ellipse ring tiers ──
+  // Each tier is filled by drawing outer ellipse half then inner, using evenodd clip
+  const tiers=[
+    {rx:RX,    ry:RY,    col:'#3a2a14', hi:'#5a4220'}, // outer stone wall
+    {rx:RX-30, ry:RY-30, col:'#4a3618', hi:'#6a5228'}, // tier 1 seats
+    {rx:RX-60, ry:RY-62, col:'#3a2a12', hi:'#584020'}, // tier 2
+    {rx:RX-92, ry:RY-96, col:'#4a3618', hi:'#6a5228'}, // tier 3 seats (cats here)
+    {rx:RX-124,ry:RY-130,col:'#3a2a12', hi:'#584020'}, // tier 4
+    {rx:RX-156,ry:RY-165,col:'#2a1c0a', hi:'#3a2810'}, // inner shadow ring
+  ];
+
+  for(let ti=0;ti<tiers.length;ti++){
+    const t=tiers[ti];
+    ctx.beginPath();
+    // Outer arc (top half, left to right)
+    ctx.ellipse(S(ECX),S(ECY),S(t.rx),S(t.ry),0,Math.PI,0,true);
+    ctx.lineTo(canvas.width,canvas.height);
+    ctx.lineTo(0,canvas.height);
+    ctx.closePath();
+    ctx.fillStyle=t.col; ctx.fill();
+    // Bright leading edge on each tier
+    ctx.strokeStyle=t.hi; ctx.lineWidth=S(ti===0?3:2);
+    ctx.beginPath();
+    ctx.ellipse(S(ECX),S(ECY),S(t.rx),S(t.ry),0,Math.PI,0,true);
+    ctx.stroke();
+  }
+
+  // ── Open arena interior (dark playing field) ──
+  const IRX=RX-188, IRY=RY-198;
+  ctx.beginPath();
+  ctx.ellipse(S(ECX),S(ECY),S(IRX),S(IRY),0,Math.PI,0,true);
+  ctx.lineTo(canvas.width,canvas.height);
+  ctx.lineTo(0,canvas.height);
+  ctx.closePath();
+  ctx.fillStyle='#1e1208'; ctx.fill();
+  // Interior back wall stone texture
+  for(let row=0;row<BASE_H;row+=22){
+    const hw=IRX*Math.sqrt(Math.max(0,1-Math.pow((ECY-row-11-ECY)/IRY,2)));
+    const lx=ECX-hw, rx2=ECX+hw;
+    const off=(Math.floor(row/22)%2===0)?0:24;
+    for(let col=lx;col<rx2;col+=48){
+      SR(col+off,row,46,20,'#241408');
+      SR(col+off,row,46,1,'#3a2010');
+    }
+  }
+
+  // ── Tier seat rows — draw along curve ──
+  const seatTiers=[
+    {rx:RX-30, ry:RY-30, col:'#6a4e28',hi:'#8a6a38'},
+    {rx:RX-60, ry:RY-62, col:'#5a4020',hi:'#7a5830'},
+    {rx:RX-92, ry:RY-96, col:'#6a4e28',hi:'#8a6a38'},
+    {rx:RX-124,ry:RY-130,col:'#5a4020',hi:'#7a5830'},
+  ];
+  for(const st of seatTiers){
+    // Draw seat rail as a series of small rects along the ellipse top edge
+    for(let dx=-st.rx+10; dx<st.rx-10; dx+=8){
+      const sy=ellipseY(dx,st.rx,st.ry);
+      if(sy<2||sy>BASE_H-20)continue;
+      SR(ECX+dx, sy, 7, 14, st.col);
+      SR(ECX+dx, sy,  7,  3, st.hi);
+    }
+  }
+
+  // ── Cat spectator crowd — placed along the arc curves ──
+  const catFurs  =['#888888','#cc6622','#e8e8e0','#3a2010','#b06030','#5588cc','#cc4488','#44aa66','#ddbb44','#7744cc'];
+  const catEyes  =['#00ff88','#ff9900','#44ccff','#ffff00','#ff4444','#88ffaa','#ff88ff','#44ffee','#ffcc44','#ff6666'];
+  const catInner =['#aa4466','#994411','#ccccbb','#221008','#883318','#3366aa','#aa2266','#228844','#bb8822','#5522aa'];
+
+  // Two rows of cats on different tier arcs
+  for(let row=0;row<2;row++){
+    const cRX = row===0 ? RX-100 : RX-130;
+    const cRY = row===0 ? RY-106 : RY-138;
+    const count = row===0 ? 22 : 18;
+    for(let ci=0;ci<count;ci++){
+      // Spread angle across visible arc (avoid extreme edges)
+      const t2 = (ci+0.5)/count;
+      const angle = Math.PI*0.04 + t2*Math.PI*0.92; // 4%–96% of top arc
+      const dx = -Math.cos(angle)*cRX; // cos(π-angle) flipped
+      const dy = -Math.sin(angle)*cRY;
+      const cx2 = ECX + dx;
+      const cy2 = ECY + dy;
+      if(cy2<2||cy2>BASE_H-50||cx2<4||cx2>BASE_W-4)continue;
+
+      const idx = ci + row*count;
+      const fur   = catFurs[idx%catFurs.length];
+      const eye   = catEyes[idx%catEyes.length];
+      const inner = catInner[idx%catInner.length];
+
+      const bob      = Math.round(Math.sin(frame*0.06+idx*1.3)*1.8);
+      const armPhase = Math.sin(frame*0.09+idx*0.9);
+      const jump     = Math.max(0,Math.sin(frame*0.08+idx*2.1));
+      const blink    = (Math.floor(frame*0.07+idx*7)%28)<2;
+      const excited  = Math.sin(frame*0.15+idx*0.7)>0.6;
+      const cy3      = cy2 + bob - Math.round(jump*4);
+
+      SR(cx2-5,  cy3+6, 10,10, fur);
+      SR(cx2-4,  cy3+7,  8, 5, inner);
+      SC(cx2,    cy3+2,  5.5, fur);
+      SR(cx2-5,  cy3-5,  3,5, fur); SR(cx2-4,cy3-7,2,3,fur); // left ear
+      SR(cx2+2,  cy3-5,  3,5, fur); SR(cx2+3,cy3-7,2,3,fur); // right ear
+      SR(cx2-4,  cy3-4,  2,3, inner); SR(cx2+3,cy3-4,2,3,inner); // inner ears
+      if(!blink){
+        SC(cx2-2,cy3+1,1.5,eye); SC(cx2+2,cy3+1,1.5,eye);
+        SR(cx2-2,cy3,1,3,'#000'); SR(cx2+2,cy3,1,3,'#000');
+      }
+      // Arms
+      const armY2=cy3+7;
+      SR(cx2-9, armY2-(armPhase>0.2?Math.round(armPhase*5):0), 4,4, fur);
+      SR(cx2+5, armY2-(armPhase<-0.2?Math.round(-armPhase*5):0), 4,4, fur);
+      // Sign holders (every 5th)
+      if(idx%5===0){
+        const sy2=cy3-14+Math.round(Math.sin(frame*0.07+idx)*3);
+        SR(cx2-6,sy2,14,9,'#f0e060'); SR(cx2-6,sy2,14,2,'#c8a820');
+        SR(cx2,sy2+9,2,7,'#8a6030');
+        SR(cx2-4,sy2+3,4,1,'#cc2200'); SR(cx2+2,sy2+3,4,1,'#cc2200');
+        SR(cx2-2,sy2+5,8,1,'#cc2200');
+      }
+      if(excited){ ctx.globalAlpha=0.7; SC(cx2,cy3-9,2,'#ffff88'); ctx.globalAlpha=1; }
+    }
+  }
+
+  // ── Torches — placed on the inner rim of the bowl, symmetrically ──
+  const flicker=Math.sin(frame*0.28)*0.35+Math.sin(frame*0.47)*0.2;
+  for(const tAngle of [Math.PI*0.12, Math.PI*0.5, Math.PI*0.88]){
+    const tdx=-Math.cos(tAngle)*(RX-60);
+    const tdy=-Math.sin(tAngle)*(RY-65);
+    const tx2=ECX+tdx, ty2=ECY+tdy;
+    if(ty2<0||ty2>BASE_H||tx2<0||tx2>BASE_W)continue;
+    SR(tx2-3,ty2,6,20,'#5a3a18'); SR(tx2-2,ty2-8,4,10,'#7a5828');
+    ctx.globalAlpha=0.25+flicker*0.15;
+    ctx.fillStyle='#ff8800'; ctx.beginPath(); ctx.arc(S(tx2),S(ty2-10),S(28),0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=1;
+    SC(tx2,ty2-10,10,'#ff6600'); SC(tx2,ty2-16,7,'#ff9900');
+    SC(tx2,ty2-21, 4,'#ffcc00'); SC(tx2,ty2-25,2,'#ffffff');
+  }
+
+  // ── Stone columns — placed radially inside the bowl ──
+  for(let ci=0;ci<6;ci++){
+    const angle=Math.PI*0.08+ci*(Math.PI*0.84/5);
+    const cdx=-Math.cos(angle)*(IRX-2);
+    const cdy=-Math.sin(angle)*(IRY-2);
+    const colTop={x:ECX+cdx, y:ECY+cdy};
+    if(colTop.y<10||colTop.y>BASE_H-60)continue;
+    const colW=12;
+    // Shaft from arc top to arena floor
+    SR(colTop.x-colW/2, colTop.y, colW, BASE_H-colTop.y-20,'#6a5838');
+    SR(colTop.x-colW/2, colTop.y, 3,    BASE_H-colTop.y-20,'#8a7848');
+    SR(colTop.x+colW/2-3,colTop.y,3,    BASE_H-colTop.y-20,'#4a3820');
+    for(let seg=0;seg<8;seg++) SR(colTop.x-colW/2+3,colTop.y+8+seg*28,colW-6,26,'#7a6840');
+    // Capital
+    SR(colTop.x-colW/2-3,colTop.y-5, colW+6,7,'#9a8858');
+    SR(colTop.x-colW/2-5,colTop.y-10,colW+10,6,'#b0a068');
+  }
+
+  // ── BANNER at very top center ──
+  const bossName = boss ? (boss.kind==='ironclaw'?"DARK CLAW'S ARENA":"DR. WHISKERS' LAIR") : 'THE ARENA';
+  SR(BASE_W/2-190, 2, 380, 36, '#140800');
+  SR(BASE_W/2-190, 2,   3, 36, '#cc8800');
+  SR(BASE_W/2+187, 2,   3, 36, '#cc8800');
+  SR(BASE_W/2-190, 2, 380,  3, '#cc8800');
+  SR(BASE_W/2-190,35, 380,  3, '#cc8800');
+  drawText(bossName, BASE_W/2, 24, '#f8d040', 7, 'center');
+
+  // ── Arena floor — sandy stone slabs ──
+  const floorY=408;
+  SR(0, floorY, BASE_W, 30, '#4a3218');
+  SR(0, floorY, BASE_W,  4, '#7a5a30');
+  for(let fx=0;fx<BASE_W;fx+=44){
+    SR(fx+1,floorY+4,42,12,'#5a3e20'); SR(fx+1,floorY+4,42,2,'#7a5830');
+    SR(fx+22,floorY+18,42,10,'#5a3e20');
+  }
+
+  // ── Purple energy barrier at the arena entry points ──
+  const barrPulse=0.6+Math.sin(frame*0.1)*0.25;
+  for(const bx2 of [ax-4, arenaRight-4]){
+    ctx.fillStyle=`rgba(180,0,255,${barrPulse*0.65})`;
+    ctx.fillRect(S(bx2),S(115),S(8),S(295));
+    ctx.fillStyle=`rgba(200,50,255,${barrPulse*0.18})`;
+    ctx.fillRect(S(bx2-10),S(113),S(28),S(299));
+    for(let i=0;i<8;i++){
+      const sy=115+((frame*2+i*36)%295);
+      SR(bx2,sy,6,4,'rgba(255,160,255,0.9)');
+    }
+  }
+  ctx.strokeStyle=`rgba(220,80,255,${barrPulse})`;
+  ctx.lineWidth=S(2);
+  ctx.beginPath();
+  ctx.ellipse(S(ECX),S(ECY),S(IRX),S(IRY),0,Math.PI,0,true);
+  ctx.stroke();
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — BOSS INTRO CUTSCENE
+// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+// DRAW — VOLCANO ARENA BACKGROUND (level 5)
+// ════════════════════════════════════════════════════════════
+function drawVolcano(){
+  // Dark red/orange sky
+  const sky = ctx.createLinearGradient(0,0,0,canvas.height*0.85);
+  sky.addColorStop(0,'#0a0005');
+  sky.addColorStop(0.5,'#200010');
+  sky.addColorStop(1,'#4a0800');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Distant volcano peaks (background)
+  ctx.fillStyle='#2a0800';
+  ctx.beginPath(); ctx.moveTo(S(0),S(430)); ctx.lineTo(S(120),S(220)); ctx.lineTo(S(240),S(430)); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(S(580),S(430)); ctx.lineTo(S(700),S(180)); ctx.lineTo(S(820),S(430)); ctx.closePath(); ctx.fill();
+  // Volcano glow at peaks
+  ctx.fillStyle='rgba(255,80,0,0.18)';
+  ctx.beginPath(); ctx.arc(S(120),S(220),S(40),0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(S(700),S(180),S(50),0,Math.PI*2); ctx.fill();
+
+  // Smoke puffs rising from peaks
+  for(let si=0;si<6;si++){
+    const st=(frame*0.4+si*18)%80;
+    const sx2=si<3?120:700, smokeY=220-(si%3)*10-st*1.5;
+    if(smokeY < -20) continue;
+    ctx.globalAlpha=0.12*(1-st/80);
+    ctx.fillStyle='#666666';
+    ctx.beginPath(); ctx.arc(S(sx2+(si%3-1)*8),S(smokeY),S(8+st*0.2),0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // Rocky cliff walls on sides
+  ctx.fillStyle='#1e0800';
+  SR(0,240,30,200,'#1e0800'); SR(0,240,14,200,'#2e1000'); // left wall
+  SR(770,240,30,200,'#1e0800'); SR(786,240,14,200,'#2e1000'); // right wall
+  // Rock details on walls
+  for(let ri=0;ri<5;ri++){
+    SR(2+ri%2*6, 260+ri*28, 18, 12, '#2a0e00');
+    SR(772+ri%2*6, 255+ri*28, 18, 12, '#2a0e00');
+  }
+
+  // Lava pool at the bottom (deadly)
+  const lavaY = 412;
+  // Lava base layer
+  ctx.fillStyle='#cc2200'; ctx.fillRect(0,S(lavaY),canvas.width,S(BASE_H-lavaY+20));
+  // Lava bright layer
+  ctx.fillStyle='#ff4400'; ctx.fillRect(0,S(lavaY),canvas.width,S(6));
+  // Lava bubble animation
+  for(let li=0;li<12;li++){
+    const lx=(li*71+23)%BASE_W;
+    const bubbleT=(frame*0.6+li*7)%30;
+    const blobY=lavaY - bubbleT*0.4;
+    const blobR=3+Math.sin(frame*0.3+li)*1.5;
+    ctx.globalAlpha=0.6+Math.sin(frame*0.2+li)*0.3;
+    ctx.fillStyle=li%3===0?'#ff6600':li%3===1?'#ffaa00':'#ff2200';
+    ctx.beginPath(); ctx.arc(S(lx),S(blobY),S(blobR),0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  // Lava glow shimmering upward
+  const lavaGlow=0.12+Math.sin(frame*0.08)*0.06;
+  const lavGrad=ctx.createLinearGradient(0,S(lavaY-60),0,S(lavaY));
+  lavGrad.addColorStop(0,'rgba(255,60,0,0)');
+  lavGrad.addColorStop(1,`rgba(255,60,0,${lavaGlow})`);
+  ctx.fillStyle=lavGrad; ctx.fillRect(0,S(lavaY-60),canvas.width,S(60));
+
+  // Floating ember particles
+  for(let ei=0;ei<14;ei++){
+    const et=(frame*0.5+ei*13)%120;
+    const ex=(ei*97+30)%BASE_W;
+    const ey=lavaY - 10 - et*2.5;
+    if(ey<0)continue;
+    ctx.globalAlpha=0.7*(1-et/120);
+    ctx.fillStyle=ei%2===0?'#ff8800':'#ffcc00';
+    ctx.fillRect(S(ex),S(ey),S(2),S(2));
+  }
+  ctx.globalAlpha=1;
+
+  // Arena title
+  const bossName = "DR. WHISKERS' VOLCANO";
+  const boxW=220, boxH=18;
+  SR(BASE_W/2-boxW/2,2,boxW,boxH,'rgba(0,0,0,0.75)');
+  ctx.strokeStyle='#ff4400'; ctx.lineWidth=S(1);
+  ctx.strokeRect(S(BASE_W/2-boxW/2)+0.5,S(2)+0.5,S(boxW)-1,S(boxH)-1);
+  drawText(bossName, BASE_W/2, 13, '#ff8844', 5, 'center');
+}
+
+function drawBossIntro(){
+  const t = bossIntroTimer;
+  const ax = bossArenaX - camX;
+
+  // Draw world behind intro
+  if(level===5) drawVolcano(); else drawColosseum();
+  for(const pl of platforms) drawPlatform(pl);
+  drawPlayer();
+
+  // Phase 0 (0–60): "ENTERING THE ARENA..." pan-in overlay
+  if(t < 60){
+    const fade = Math.min(1, t/20);
+    ctx.fillStyle=`rgba(0,0,0,${0.7*fade})`; ctx.fillRect(0,0,canvas.width,canvas.height);
+    if(t>20){
+      const introText = level===5 ? 'ABOVE THE VOLCANO' : 'ENTERING THE ARENA';
+      const introCol  = level===5 ? '#ff6622' : '#f8c040';
+      drawText(introText, BASE_W/2, BASE_H/2-20, introCol, 9, 'center');
+      if(Math.floor(t/12)%2===0)
+        drawText('GET READY!', BASE_W/2, BASE_H/2+8, '#ff4444', 7, 'center');
+    }
+    return;
+  }
+
+  // Phase 1 (60–130): boss drops from sky, lands with explosion
+  if(t < 130){
+    const dropT = t - 60;
+    if(boss){
+      // Animate boss dropping in
+      boss.vy += GRAVITY;
+      boss.y += boss.vy;
+      // Check if landed
+      for(const pl of platforms){
+        if(overlap(boss,pl)&&landOn(boss,pl)){
+          if(!boss._landed){ boss._landed=true; shake(25); boss.vy=0; }
+          boss.y=pl.y-boss.h; boss.vy=0;
+        }
+      }
+    }
+    drawBoss();
+    // Streak lines (boss falling fast)
+    if(!boss||!boss._landed){
+      const bsx = (boss?boss.x:bossArenaX+200) - camX;
+      ctx.strokeStyle='rgba(200,0,255,0.5)'; ctx.lineWidth=S(2);
+      for(let i=0;i<6;i++){
+        ctx.beginPath();
+        ctx.moveTo(S(bsx+boss.w/2+(i-3)*8), S(boss ? boss.y-10 : 0));
+        ctx.lineTo(S(bsx+boss.w/2+(i-3)*8), S(boss ? boss.y-30-i*12 : -40));
+        ctx.stroke();
+      }
+    }
+    // Dark overlay around edges (vignette)
+    ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    if(boss && boss._landed){
+      // Shockwave on landing
+      const waveT = dropT - (boss._landT||dropT);
+      if(!boss._landT) boss._landT=dropT;
+      const waveR = (dropT - boss._landT)*6;
+      if(waveR < 120){
+        ctx.strokeStyle=`rgba(180,0,255,${1-waveR/120})`; ctx.lineWidth=S(3);
+        ctx.beginPath(); ctx.arc(S((boss.x-camX)+boss.w/2), S(boss.y+boss.h), S(waveR), 0, Math.PI*2); ctx.stroke();
+      }
+    }
+    return;
+  }
+
+  // Phase 2 (130–200): boss taunts, flash name
+  if(t < 200){
+    drawBoss();
+    const bossLabel = boss ? (boss.kind==='ironclaw'?'DARK CLAW':'DR. WHISKERS') : 'BOSS';
+    const bossQuote = boss ? (boss.kind==='ironclaw'?'"YOUR FUR ENDS HERE, DOG!"':'"A FAIR FIGHT! TAKE THIS DOG TREAT!"') : '';
+    if(level===5 && Math.floor(t/6)%2===0)
+      drawText('[DOG TREAT DRAGON: INFINITE FUEL!]', BASE_W/2, BASE_H/2+40, '#ffaa44', 5, 'center');
+    const flash = Math.floor(t/6)%2===0;
+    ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    if(flash) drawText(bossLabel, BASE_W/2, BASE_H/2-50, '#cc00ff', 12, 'center');
+    drawText(bossQuote, BASE_W/2, BASE_H/2-18, '#ff8888', 6, 'center');
+    // Countdown
+    const cdNum = Math.ceil((200-t)/60);
+    if(cdNum>0) drawText(String(cdNum), BASE_W/2, BASE_H/2+20, '#ffffff', 16, 'center');
+    return;
+  }
+
+  // Done — start fight
+  boss.dormant = false;
+  boss.shootCd = 90;
+  bossArenaMode = true;
+  camX = bossArenaCamX;
+  gs = 'playing';
+  // Level 5: Dr. Whiskers gifts Rex a dog-treat dragon (infinite fuel)
+  if(level===5){ player.ability='dragon'; player.dragFuel=300; player.infiniteDrag=true; }
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — PURE BLACK STARFIELD (used by menu / story screens)
+// ════════════════════════════════════════════════════════════
+function drawStarBG(){
+  ctx.fillStyle='#000008'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(let i=0;i<90;i++){
+    const sx=(i*173+11)%BASE_W, sy=(i*67+7)%(BASE_H-4);
+    const blink = 0.35 + Math.abs(Math.sin(frame*0.018+i*0.8))*0.6;
+    ctx.globalAlpha = blink;
+    ctx.fillStyle = i%9===0?'#aaddff':i%5===0?'#ffffff':'#ddeeff';
+    const sz = i%11===0 ? 2 : 1;
+    ctx.fillRect(S(sx),S(sy),S(sz),S(sz));
+  }
+  ctx.globalAlpha=1;
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — STORY / LEVEL INTRO (typewriter)
+// ════════════════════════════════════════════════════════════
+function updateStory(){
+  storyTick++;
+  if(storyTick >= 2){ // one new character per 2 frames
+    storyTick=0;
+    const mission = MISSIONS[level-1];
+    if(!mission)return;
+    const line = mission.lines[storyLine];
+    if(!line)return;
+    if(storyChar < line.t.length){ storyChar++; }
+  }
+}
+function advanceStory(){
+  const mission = MISSIONS[level-1]; if(!mission)return;
+  const line = mission.lines[storyLine];
+  if(!line){ startPlay(); return; }
+  if(storyChar < line.t.length){ storyChar=line.t.length; return; } // finish typing first
+  storyLine++;
+  storyChar=0; storyTick=0;
+  if(storyLine >= mission.lines.length){ startPlay(); }
+}
+function drawLevelIntro(){
+  drawStarBG();
+  const mission = MISSIONS[level-1];
+  if(!mission){ startPlay(); return; }
+
+  // Header bar — dark green strip like original
+  SR(0,0,BASE_W,44,'#050e05');
+  ctx.strokeStyle='#1a4a1a'; ctx.lineWidth=S(1);
+  ctx.beginPath(); ctx.moveTo(0,S(44)); ctx.lineTo(canvas.width,S(44)); ctx.stroke();
+  drawText(mission.title, BASE_W/2, 28, '#40ff40', 9, 'center');
+
+  // All past lines scrolling up (faded green)
+  const lineH = 22, startY = 68;
+  const maxVisible = Math.floor((BASE_H - startY - 60) / lineH);
+  const dispStart = Math.max(0, storyLine - maxVisible + 1);
+
+  for(let i=dispStart; i<storyLine; i++){
+    const l=mission.lines[i];
+    const fade = 0.2 + 0.25*((i-dispStart)/(storyLine-dispStart||1));
+    ctx.globalAlpha = fade;
+    const col = l.s==='HQ' ? '#40ff40' : '#60ff60';
+    drawText('['+l.s+']  '+l.t, 50, startY+(i-dispStart)*lineH, col, 7);
+    ctx.globalAlpha=1;
+  }
+
+  // Current line — bright green, typewriter
+  if(storyLine < mission.lines.length){
+    const cur=mission.lines[storyLine];
+    const col = cur.s==='HQ' ? '#80ff80' : '#40ff40';
+    const tag='['+cur.s+']  ';
+    const txt=cur.t.substring(0,storyChar);
+    const vy=startY+(Math.min(storyLine,maxVisible))*lineH;
+    drawText(tag+txt, 50, vy, col, 7);
+    // blinking block cursor
+    if(Math.floor(frame/8)%2===0){
+      ctx.font=`${S(7)}px 'Press Start 2P',monospace`;
+      const tw=ctx.measureText(tag+txt).width;
+      ctx.fillStyle=col; ctx.fillRect(S(50)+tw+S(2),S(vy-7),S(6),S(9));
+    }
+  }
+
+  // Bottom prompt
+  const linesDone = storyLine>=mission.lines.length;
+  const charsDone = linesDone || storyChar>=(mission.lines[storyLine]?.t||'').length;
+  if(Math.floor(frame/26)%2===0){
+    const msg = charsDone
+      ? (linesDone ? 'PRESS ENTER TO BEGIN MISSION' : 'PRESS ENTER TO CONTINUE')
+      : 'PRESS ENTER TO SKIP';
+    drawText(msg, BASE_W/2, BASE_H-18, charsDone?'#40ff40':'#1a4a1a', 7, 'center');
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAW — OVERLAY SCREENS
+// ════════════════════════════════════════════════════════════
+function drawMenu(){
+  drawStarBG();
+
+  // Green ground strip at the bottom — just like the original
+  SR(0,BASE_H-56,BASE_W,56,'#0a1f08');
+  SR(0,BASE_H-56,BASE_W,10,'#163010');
+  SR(0,BASE_H-58,BASE_W, 4,'#20481a');
+  for(let gx=0;gx<BASE_W;gx+=14){
+    SR(gx,   BASE_H-62,2,6,'#18440e');
+    SR(gx+7, BASE_H-60,2,5,'#1e5012');
+  }
+
+  // Cat + Rex sprites walking along the bottom
+  const menuWalk = Math.floor(menuF/10)%4;
+  drawEnemyCat(110, BASE_H-56, 1, menuWalk, 'cat');
+  drawEnemyCat(270, BASE_H-56,-1, menuWalk, 'cat');
+  drawRex(BASE_W/2, BASE_H-56, 1, menuWalk, 'idle');
+  drawEnemyCat(BASE_W-260, BASE_H-56, 1, menuWalk, 'armored');
+  drawEnemyCat(BASE_W-100, BASE_H-56,-1, menuWalk, 'laser');
+
+  // Title — large yellow, just like original
+  drawText('BARK OPS 2', BASE_W/2, 110, '#f0cc48', 22, 'center');
+  drawText('DRAGON SQUADRON', BASE_W/2, 152, '#e07818', 10, 'center');
+
+  // Separator line
+  ctx.strokeStyle='#1a3a1a'; ctx.lineWidth=S(1);
+  ctx.beginPath(); ctx.moveTo(S(BASE_W/2-200),S(164)); ctx.lineTo(S(BASE_W/2+200),S(164)); ctx.stroke();
+
+  // Blinking start prompt
+  if(Math.floor(menuF/28)%2===0)
+    drawText('PRESS ENTER TO START', BASE_W/2, 200, '#40c040', 8, 'center');
+
+  // Controls in dim green
+  drawText('MOVE:  ARROWS / WASD',     BASE_W/2, 238, '#286028', 6, 'center');
+  drawText('JUMP:  SPACE / W / UP',    BASE_W/2, 253, '#286028', 6, 'center');
+  drawText('FIRE:  Z / X / SHIFT',     BASE_W/2, 268, '#286028', 6, 'center');
+  drawText('STOMP: JUMP ON ENEMIES',   BASE_W/2, 283, '#286028', 6, 'center');
+  drawText('HIT = LOSE YOUR ABILITY FIRST', BASE_W/2, 298, '#603030', 6, 'center');
+
+  // Bone block hint
+  drawText('HIT BONE BLOCKS FROM BELOW FOR UPGRADES', BASE_W/2, 322, '#4a7028', 6, 'center');
+
+  // Dragon note — rainbow cycling like original
+  const dc=`hsl(${frame*4%360},90%,58%)`;
+  drawText('-- SUPER RARE: FIND A DRAGON! --', BASE_W/2, 356, dc, 6, 'center');
+
+  menuF++;
+}
+function drawLevelDone(){
+  drawStarBG();
+  // Show the mission name that was just completed (level was already incremented so use level-1)
+  const missionIdx = Math.min(level-2, MISSIONS.length-1);
+  const missionName = missionIdx>=0 && MISSIONS[missionIdx] ? MISSIONS[missionIdx].title : '';
+  drawText('MISSION COMPLETE!', BASE_W/2, BASE_H/2-52, '#40ff40', 14, 'center');
+  if(missionName) drawText(missionName, BASE_W/2, BASE_H/2-22, '#80ff80', 7, 'center');
+  ctx.strokeStyle='#204020'; ctx.lineWidth=S(1);
+  ctx.beginPath(); ctx.moveTo(S(BASE_W/2-200),S(BASE_H/2-4)); ctx.lineTo(S(BASE_W/2+200),S(BASE_H/2-4)); ctx.stroke();
+  drawText('SCORE: '+score, BASE_W/2, BASE_H/2+16, '#f0cc48', 9, 'center');
+  if(Math.floor(frame/26)%2===0)
+    drawText(level<=5?'LOADING NEXT MISSION...':'PREPARING DEBRIEF...', BASE_W/2, BASE_H/2+46, '#286028', 7, 'center');
+}
+function drawGameOver(){
+  drawStarBG();
+  drawText('GAME OVER', BASE_W/2, BASE_H/2-44, '#ff2020', 18, 'center');
+  ctx.strokeStyle='#401010'; ctx.lineWidth=S(1);
+  ctx.beginPath(); ctx.moveTo(S(BASE_W/2-180),S(BASE_H/2-20)); ctx.lineTo(S(BASE_W/2+180),S(BASE_H/2-20)); ctx.stroke();
+  drawText('SCORE: '+score, BASE_W/2, BASE_H/2+6, '#f0cc48', 9, 'center');
+  if(Math.floor(frame/28)%2===0)
+    drawText('PRESS ENTER TO TRY AGAIN', BASE_W/2, BASE_H/2+42, '#603030', 7, 'center');
+}
+// ════════════════════════════════════════════════════════════
+// DRAW — EPILOGUE (post-final-boss dialogue, same typewriter style)
+// ════════════════════════════════════════════════════════════
+function updateEpilogue(){
+  epilogueTick++;
+  if(epilogueTick>=2){
+    epilogueTick=0;
+    const line=EPILOGUE[epilogueLine];
+    if(!line){ epilogueDone=true; return; }
+    if(epilogueChar<line.t.length){ epilogueChar++; }
+  }
+}
+function advanceEpilogue(){
+  const line=EPILOGUE[epilogueLine];
+  if(!line){ gs='victory'; return; }
+  if(epilogueChar<line.t.length){ epilogueChar=line.t.length; return; }
+  epilogueLine++; epilogueChar=0; epilogueTick=0;
+  if(epilogueLine>=EPILOGUE.length){ epilogueDone=true; gs='victory'; }
+}
+function drawEpilogue(){
+  drawStarBG();
+  // Header bar
+  SR(0,0,BASE_W,44,'#050e05');
+  ctx.strokeStyle='#1a4a1a'; ctx.lineWidth=S(1);
+  ctx.beginPath(); ctx.moveTo(0,S(44)); ctx.lineTo(canvas.width,S(44)); ctx.stroke();
+  drawText('EPILOGUE', BASE_W/2, 28, '#40ff40', 9, 'center');
+
+  const lineH=22, startY=68;
+  const maxVisible=Math.floor((BASE_H-startY-60)/lineH);
+  const dispStart=Math.max(0, epilogueLine-maxVisible+1);
+
+  for(let i=dispStart; i<epilogueLine; i++){
+    const l=EPILOGUE[i];
+    const fade=0.2+0.25*((i-dispStart)/(epilogueLine-dispStart||1));
+    ctx.globalAlpha=fade;
+    const col=l.s==='HQ'?'#40ff40':'#60ff60';
+    drawText('['+l.s+']  '+l.t, 50, startY+(i-dispStart)*lineH, col, 7);
+    ctx.globalAlpha=1;
+  }
+
+  if(epilogueLine<EPILOGUE.length){
+    const cur=EPILOGUE[epilogueLine];
+    const col=cur.s==='HQ'?'#80ff80':'#40ff40';
+    const tag='['+cur.s+']  ';
+    const txt=cur.t.substring(0,epilogueChar);
+    const vy=startY+(Math.min(epilogueLine,maxVisible))*lineH;
+    drawText(tag+txt, 50, vy, col, 7);
+    if(Math.floor(frame/8)%2===0){
+      ctx.font=`${S(7)}px 'Press Start 2P',monospace`;
+      const tw=ctx.measureText(tag+txt).width;
+      ctx.fillStyle=col; ctx.fillRect(S(50)+tw+S(2),S(vy-7),S(6),S(9));
+    }
+  }
+
+  const linesDone=epilogueLine>=EPILOGUE.length;
+  const charsDone=linesDone||(epilogueChar>=(EPILOGUE[epilogueLine]?.t||'').length);
+  if(Math.floor(frame/26)%2===0){
+    const msg=charsDone
+      ?(linesDone?'PRESS ENTER FOR FINAL SCORE':'PRESS ENTER TO CONTINUE')
+      :'PRESS ENTER TO SKIP';
+    drawText(msg, BASE_W/2, BASE_H-18, charsDone?'#40ff40':'#1a4a1a', 7, 'center');
+  }
+}
+
+function drawVictory(){
+  drawStarBG();
+  // Fireworks behind text
+  for(let i=0;i<5;i++){
+    const fx=(BASE_W/2-180+i*90)+Math.sin(frame*0.1+i)*18;
+    const fy=BASE_H/2-120+Math.sin(frame*0.08+i*0.7)*22;
+    const fw=(frame+i*36)%72;
+    if(fw<36){ for(let j=0;j<8;j++){
+      const a=j/8*Math.PI*2, r=fw*2.2;
+      ctx.fillStyle=`hsl(${(i*72+frame*5)%360},100%,65%)`;
+      ctx.fillRect(S(fx+Math.cos(a)*r),S(fy+Math.sin(a)*r),S(2),S(2));
+    }}
+  }
+
+  const vc=`hsl(${frame*3%360},90%,60%)`;
+  drawText('VICTORY!', BASE_W/2, 44, vc, 20, 'center');
+  ctx.strokeStyle='#204020'; ctx.lineWidth=S(1);
+  ctx.beginPath(); ctx.moveTo(S(BASE_W/2-240),S(70)); ctx.lineTo(S(BASE_W/2+240),S(70)); ctx.stroke();
+  drawText('REX SAVES THE WORLD!', BASE_W/2, 88, '#40ff40', 7, 'center');
+
+  // Score breakdown panel
+  const px=BASE_W/2-180, py=106, pw=360, ph=168;
+  ctx.fillStyle='rgba(0,20,0,0.7)'; ctx.fillRect(S(px),S(py),S(pw),S(ph));
+  ctx.strokeStyle='#1a5a1a'; ctx.lineWidth=S(1);
+  ctx.strokeRect(S(px),S(py),S(pw),S(ph));
+
+  drawText('-- MISSION DEBRIEF --', BASE_W/2, py+14, '#60ff60', 7, 'center');
+
+  const lifeBonus = livesAtEnd * 500;
+  const baseScore = score - lifeBonus;
+  const rank = score>=25000?'S — ELITE':score>=18000?'A — ACE':score>=12000?'B — SOLDIER':score>=7000?'C — ROOKIE':'D — TRAINEE';
+  const rankCol = score>=25000?'#f8e060':score>=18000?'#80ff80':score>=12000?'#60ccff':score>=7000?'#e07818':'#ff6060';
+
+  const rows=[
+    ['COMBAT SCORE',    baseScore, '#f0cc48'],
+    ['LIVES REMAINING', livesAtEnd+' x 500 = '+lifeBonus, '#60ff60'],
+    ['──────────────────────────────────', '', '#1a4a1a'],
+    ['TOTAL SCORE',     score, '#f8f860'],
+    ['RANK',            rank, rankCol],
+  ];
+  let ry=py+30;
+  for(const [label,val,col] of rows){
+    if(label.startsWith('──')){
+      ctx.strokeStyle='#1a4a1a'; ctx.lineWidth=S(1);
+      ctx.beginPath(); ctx.moveTo(S(px+10),S(ry)); ctx.lineTo(S(px+pw-10),S(ry)); ctx.stroke();
+      ry+=10; continue;
+    }
+    drawText(label+':', px+12, ry, '#60ff60', 6);
+    drawText(String(val), px+pw-12, ry, col, 6, 'right');
+    ry+=24;
+  }
+
+  if(Math.floor(frame/28)%2===0)
+    drawText('PRESS ENTER TO PLAY AGAIN', BASE_W/2, py+ph+20, '#286028', 7, 'center');
+}
+
+// ════════════════════════════════════════════════════════════
+// MAIN LOOP
+// ════════════════════════════════════════════════════════════
+function loop(){
+  requestAnimationFrame(loop);
+  frame++;
+
+  ctx.save();
+  if(gs==='playing') ctx.translate(S(shakeX),S(shakeY));
+
+  if(gs==='menu'){
+    drawMenu();
+    if(just('Enter')||just('Space')) newGame();
+
+  } else if(gs==='levelIntro'){
+    updateStory();
+    drawLevelIntro();
+    if(anyJust()) advanceStory();
+
+  } else if(gs==='bossIntro'){
+    bossIntroTimer++;
+    updateShake();
+    if(bossArenaMode){ if(level===5) drawVolcano(); else drawColosseum(); } else { drawBG(); }
+    for(const pl of platforms) drawPlatform(pl);
+    drawBossIntro();
+    drawHUD();
+
+  } else if(gs==='playing'){
+    updateShake(); updatePlayer(); updateEnemies(); updateBoss(); updateBullets(); updateParticles(); updatePickups(); updateCamera();
+    if(bossArenaMode){ if(level===5) drawVolcano(); else drawColosseum(); } else { drawBG(); }
+    for(const pl of platforms)    drawPlatform(pl);
+    for(const bone of boneBlocks) drawBoneBlock(bone);
+    for(const pk of pickups)      drawPickup(pk);
+    for(const ds of dragonSpots)  drawDragonSpot(ds);
+    drawBullets();
+    for(const e of enemies)       drawEnemy(e);
+    drawPlayer();
+    drawBoss();
+    drawParticles();
+    drawHUD();
+    drawBossHUD();
+
+  } else if(gs==='levelDone'){
+    levelDoneTimer++;
+    drawBG();
+    for(const pl of platforms) drawPlatform(pl);
+    drawPlayer(); drawHUD(); drawLevelDone();
+    if(levelDoneTimer>130){
+      if(level>5){ gs='epilogue'; epilogueLine=0; epilogueChar=0; epilogueTick=0; epilogueDone=false; }
+      else { beginLevel(); }
+    }
+
+  } else if(gs==='gameover'){
+    drawBG(); drawGameOver();
+    if(just('Enter')||just('Space')) newGame();
+
+  } else if(gs==='epilogue'){
+    updateEpilogue();
+    drawEpilogue();
+    if(anyJust()) advanceEpilogue();
+
+  } else if(gs==='victory'){
+    drawStarBG(); drawVictory();
+    if(just('Enter')||just('Space')) newGame();
+  }
+
+  ctx.restore();
+  afterFrame();
+}
+
+loop();
+</script>
+</body>
+</html>
