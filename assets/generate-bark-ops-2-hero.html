@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>BARK OPS 2 Hero Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; }
+  canvas { display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const W = 800, H = 450;
+const c = document.getElementById('c');
+c.width = W; c.height = H;
+const ctx = c.getContext('2d');
+
+// ── pixel helper ──
+function px(x, y, col, s=2) {
+  ctx.fillStyle = col;
+  ctx.fillRect(x*s, y*s, s, s);
+}
+function rect(x,y,w,h,col,s=2) {
+  ctx.fillStyle = col;
+  ctx.fillRect(x*s, y*s, w*s, h*s);
+}
+
+const S = 2;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SKY — dark navy/blue gradient like the game screenshot
+// ══════════════════════════════════════════════════════════════════════════════
+{
+  const grd = ctx.createLinearGradient(0,0,0,H);
+  grd.addColorStop(0,   '#020410');
+  grd.addColorStop(0.3, '#040818');
+  grd.addColorStop(0.55,'#060c20');
+  grd.addColorStop(0.8, '#081028');
+  grd.addColorStop(1,   '#0a1430');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0,0,W,H);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STARS — white/light dots scattered across sky
+// ══════════════════════════════════════════════════════════════════════════════
+const starPositions = [];
+for(let i=0;i<90;i++){
+  const sx = Math.floor(Math.random()*400);
+  const sy = Math.floor(Math.random()*140);
+  starPositions.push([sx,sy]);
+}
+starPositions.forEach(([x,y])=>{
+  const bright = Math.random()>0.6;
+  px(x, y, bright ? '#ffffff' : '#6688aa', S);
+});
+// A few bigger brighter stars
+[[30,12],[85,28],[150,8],[250,22],[340,14],[380,35],[55,45],[195,38],[310,50]].forEach(([x,y])=>{
+  px(x,y,'#ffffff',S);
+  px(x+1,y,'#aabbcc',S);
+  px(x,y+1,'#8899bb',S);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BACKGROUND — dark tree/bush silhouettes (like in the game)
+// ══════════════════════════════════════════════════════════════════════════════
+function drawTree(tx, ty, size) {
+  // dark silhouette tree
+  const col = '#0a1e10';
+  const col2 = '#0c2414';
+  // trunk
+  rect(tx+size/2-1, ty+size*0.6, 3, size*0.4, '#081808', S);
+  // canopy - layered circles
+  for(let r=size;r>size*0.3;r-=2){
+    for(let dy=-r;dy<=r;dy++) for(let dx=-r;dx<=r;dx++){
+      if(dx*dx+dy*dy<=r*r){
+        px(tx+size/2+dx, ty+size*0.3+dy, r>size*0.6?col:col2, S);
+      }
+    }
+  }
+}
+// Trees along the bottom
+drawTree(30, 152, 16);
+drawTree(75, 148, 20);
+drawTree(120, 155, 14);
+drawTree(170, 150, 18);
+drawTree(220, 152, 15);
+drawTree(270, 147, 22);
+drawTree(320, 153, 16);
+drawTree(360, 149, 19);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GROUND — green grass strip at bottom (like the game)
+// ══════════════════════════════════════════════════════════════════════════════
+const groundY = 185;
+// main ground
+rect(0, groundY, 400, 40, '#1a5c1a', S);
+// grass top edge - jagged pixel grass
+for(let gx=0; gx<400; gx++){
+  const gh = Math.floor(Math.random()*4)+1;
+  rect(gx, groundY-gh, 1, gh, '#28a028', S);
+  if(gx%2===0) rect(gx, groundY-gh-1, 1, 1, '#30c030', S);
+}
+// ground texture
+for(let gy=0;gy<35;gy+=3) for(let gx=0;gx<400;gx+=4){
+  if(Math.random()>0.7) px(gx, groundY+gy, '#166016', S);
+}
+// dark bottom
+rect(0, groundY+20, 400, 20, '#0e3c0e', S);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PLATFORMS — metal/grey and red brick (like the game)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Metal platform function
+function drawMetalPlatform(px0, py, w) {
+  // top surface
+  rect(px0, py, w, 3, '#b0b8c0', S);
+  rect(px0, py+1, w, 1, '#8890a0', S);
+  // body
+  rect(px0, py+3, w, 8, '#707880', S);
+  // rivet details
+  for(let rx=px0+3; rx<px0+w-2; rx+=6){
+    px(rx, py+5, '#c0c8d0', S);
+    px(rx, py+8, '#c0c8d0', S);
+  }
+  // bottom shadow
+  rect(px0, py+10, w, 2, '#505860', S);
+  // edges
+  rect(px0, py, 2, 12, '#909aa0', S);
+  rect(px0+w-2, py, 2, 12, '#909aa0', S);
+}
+
+// Brick platform function
+function drawBrickPlatform(px0, py, w) {
+  const brickH = 6;
+  const brickW = 8;
+  for(let row=0; row<2; row++){
+    for(let col=0; col<Math.ceil(w/brickW); col++){
+      const bx = px0 + col*brickW + (row%2)*4;
+      const by = py + row*brickH;
+      if(bx >= px0+w) continue;
+      const bw = Math.min(brickW-1, px0+w-bx-1);
+      if(bw<=0) continue;
+      rect(bx, by, bw, brickH-1, '#c83030', S);
+      // highlight top
+      rect(bx, by, bw, 1, '#e04040', S);
+      // shadow right/bottom
+      rect(bx+bw-1, by, 1, brickH-1, '#a02020', S);
+      rect(bx, by+brickH-2, bw, 1, '#a02020', S);
+    }
+  }
+}
+
+// Left area - metal platform (high)
+drawMetalPlatform(28, 130, 60);
+
+// Center - brick platform
+drawBrickPlatform(150, 155, 55);
+
+// Right side - metal platform (high)
+drawMetalPlatform(280, 120, 55);
+
+// Far right - metal platform edge
+drawMetalPlatform(360, 145, 42);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COINS — orange/gold circles with brown square (like the game)
+// ══════════════════════════════════════════════════════════════════════════════
+function drawCoin(cx, cy) {
+  // brown square behind
+  rect(cx-2, cy-2, 4, 4, '#804020', S);
+  // orange/gold circle
+  for(let dy=-3;dy<=3;dy++) for(let dx=-3;dx<=3;dx++){
+    if(dx*dx+dy*dy<=9){
+      const edge = dx*dx+dy*dy>6;
+      px(cx+dx, cy+dy, edge?'#cc8800':'#ffaa00', S);
+    }
+  }
+  // shine
+  px(cx-1, cy-1, '#ffdd44', S);
+  px(cx, cy-2, '#ffcc22', S);
+}
+
+drawCoin(115, 108);
+drawCoin(138, 108);
+drawCoin(205, 100);
+drawCoin(228, 100);
+drawCoin(318, 88);
+drawCoin(340, 88);
+drawCoin(170, 135);
+drawCoin(190, 135);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CAT ENEMIES — grey pixel cats on platforms (like the game)
+// ══════════════════════════════════════════════════════════════════════════════
+function drawCat(cx, cy) {
+  // body
+  rect(cx-5, cy-2, 10, 8, '#a0a8b0', S);
+  // head
+  rect(cx-4, cy-8, 8, 7, '#b0b8c0', S);
+  // ears (pointy)
+  rect(cx-4, cy-11, 3, 4, '#b0b8c0', S);
+  rect(cx+1, cy-11, 3, 4, '#b0b8c0', S);
+  // inner ear
+  px(cx-3, cy-10, '#d0a0a0', S);
+  px(cx+2, cy-10, '#d0a0a0', S);
+  // eyes
+  px(cx-2, cy-6, '#ffee00', S);
+  px(cx+2, cy-6, '#ffee00', S);
+  // pupil
+  px(cx-2, cy-5, '#202020', S);
+  px(cx+2, cy-5, '#202020', S);
+  // nose
+  px(cx, cy-4, '#e07070', S);
+  // whiskers
+  px(cx-5, cy-4, '#c0c8d0', S); px(cx-6, cy-5, '#c0c8d0', S);
+  px(cx+5, cy-4, '#c0c8d0', S); px(cx+6, cy-5, '#c0c8d0', S);
+  // legs
+  rect(cx-4, cy+5, 3, 4, '#909898', S);
+  rect(cx+1, cy+5, 3, 4, '#909898', S);
+  // tail (curved up)
+  rect(cx+5, cy, 2, 2, '#a0a8b0', S);
+  rect(cx+6, cy-2, 2, 3, '#a0a8b0', S);
+  rect(cx+7, cy-4, 2, 3, '#a0a8b0', S);
+}
+
+// Cat on brick platform
+drawCat(175, 148);
+// Cat on ground right
+drawCat(335, 178);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DRAGON — Rex riding, matching game style (green body, orange/red wings on top)
+// ══════════════════════════════════════════════════════════════════════════════
+const DX = 90, DY = 105;
+
+// === TAIL ===
+const tailPts = [
+  [DX-10,DY+5],[DX-18,DY+8],[DX-26,DY+10],[DX-34,DY+8],[DX-40,DY+4],[DX-44,DY-1]
+];
+for(let i=0;i<tailPts.length-1;i++){
+  const [x0,y0]=tailPts[i],[x1,y1]=tailPts[i+1];
+  const w = Math.max(1, 4-i);
+  for(let t=0;t<=6;t++){
+    const tx=x0+(x1-x0)*t/6, ty=y0+(y1-y0)*t/6;
+    for(let dy=-w;dy<=w;dy++) for(let dx=-w;dx<=w;dx++){
+      if(dx*dx+dy*dy<=w*w) px(Math.round(tx+dx),Math.round(ty+dy),'#2a8c3a',S);
+    }
+  }
+}
+// tail tip
+rect(DX-45, DY-4, 4, 3, '#30a040', S);
+rect(DX-47, DY-3, 3, 2, '#28883a', S);
+
+// === WINGS — orange/red on top, spread wide ===
+// Left wing (up and back)
+ctx.fillStyle = '#cc3020';
+ctx.beginPath();
+ctx.moveTo((DX-2)*S, (DY-10)*S);
+ctx.lineTo((DX-25)*S, (DY-40)*S);
+ctx.lineTo((DX-35)*S, (DY-35)*S);
+ctx.lineTo((DX-20)*S, (DY-18)*S);
+ctx.lineTo((DX-8)*S, (DY-5)*S);
+ctx.closePath();
+ctx.fill();
+// wing membrane
+ctx.fillStyle = '#e04030';
+ctx.beginPath();
+ctx.moveTo((DX-5)*S, (DY-8)*S);
+ctx.lineTo((DX-20)*S, (DY-36)*S);
+ctx.lineTo((DX-30)*S, (DY-32)*S);
+ctx.lineTo((DX-15)*S, (DY-14)*S);
+ctx.closePath();
+ctx.fill();
+// wing struts
+ctx.strokeStyle = '#a02018';
+ctx.lineWidth = S;
+ctx.beginPath();
+ctx.moveTo((DX-4)*S,(DY-8)*S); ctx.lineTo((DX-22)*S,(DY-38)*S);
+ctx.moveTo((DX-8)*S,(DY-6)*S); ctx.lineTo((DX-30)*S,(DY-33)*S);
+ctx.stroke();
+
+// Right wing (up and forward)
+ctx.fillStyle = '#cc3020';
+ctx.beginPath();
+ctx.moveTo((DX+10)*S, (DY-10)*S);
+ctx.lineTo((DX+30)*S, (DY-38)*S);
+ctx.lineTo((DX+40)*S, (DY-32)*S);
+ctx.lineTo((DX+25)*S, (DY-15)*S);
+ctx.lineTo((DX+12)*S, (DY-5)*S);
+ctx.closePath();
+ctx.fill();
+ctx.fillStyle = '#e04030';
+ctx.beginPath();
+ctx.moveTo((DX+12)*S, (DY-8)*S);
+ctx.lineTo((DX+28)*S, (DY-35)*S);
+ctx.lineTo((DX+36)*S, (DY-30)*S);
+ctx.lineTo((DX+20)*S, (DY-12)*S);
+ctx.closePath();
+ctx.fill();
+ctx.strokeStyle = '#a02018';
+ctx.beginPath();
+ctx.moveTo((DX+12)*S,(DY-8)*S); ctx.lineTo((DX+32)*S,(DY-36)*S);
+ctx.moveTo((DX+15)*S,(DY-6)*S); ctx.lineTo((DX+38)*S,(DY-31)*S);
+ctx.stroke();
+
+// === DRAGON BODY ===
+// main body oval
+for(let dy=-10;dy<=10;dy++) for(let dx=-18;dx<=18;dx++){
+  if((dx/18)*(dx/18)+(dy/10)*(dy/10)<=1){
+    const edge = Math.abs((dx/18)*(dx/18)+(dy/10)*(dy/10)-1)<0.1;
+    px(DX+dx, DY+dy, edge?'#30a040':'#2a8c3a', S);
+  }
+}
+// belly
+for(let dy=-5;dy<=5;dy++) for(let dx=-10;dx<=10;dx++){
+  if((dx/10)*(dx/10)+(dy/5)*(dy/5)<=1) px(DX+dx, DY+4+dy, '#48b858', S);
+}
+// scale texture
+for(let row=0;row<3;row++) for(let col=0;col<4;col++){
+  px(DX-8+col*5+(row%2)*2, DY-2+row*4, '#30a040', S);
+}
+
+// === DRAGON NECK & HEAD ===
+// neck going right/forward
+for(let i=0;i<=8;i++){
+  const nx=DX+16+i*3, ny=DY-3-i*1;
+  for(let d=-3;d<=3;d++) for(let dd=-3;dd<=3;dd++){
+    if(d*d+dd*dd<=9) px(nx+d, ny+dd, '#2a8c3a', S);
+  }
+}
+
+// head
+const HX=DX+42, HY=DY-12;
+for(let dy=-7;dy<=7;dy++) for(let dx=-10;dx<=10;dx++){
+  if((dx/10)*(dx/10)+(dy/7)*(dy/7)<=1) px(HX+dx,HY+dy,'#2a8c3a',S);
+}
+// snout
+rect(HX+4, HY-2, 12, 8, '#2a8c3a', S);
+rect(HX+6, HY, 10, 5, '#30a040', S);
+// nostril
+px(HX+14, HY+1, '#1a5c1a', S);
+// eye
+rect(HX+1, HY-4, 5, 4, '#000000', S);
+rect(HX+2, HY-3, 3, 2, '#ffaa00', S);
+px(HX+3, HY-3, '#ff4400', S);  // slit pupil
+// mouth open
+rect(HX+10, HY+4, 6, 2, '#801010', S);
+// teeth
+[HX+10,HX+12,HX+14].forEach(x=>{ px(x,HY+3,1,'#e0e0e0',S); px(x,HY+6,'#e0e0e0',S); });
+// horn
+rect(HX-2, HY-10, 3, 5, '#30a040', S);
+rect(HX-1, HY-12, 2, 3, '#40c050', S);
+
+// === DRAGON LEGS ===
+// front legs dangling
+rect(DX+8, DY+10, 5, 10, '#2a8c3a', S);
+rect(DX+6, DY+18, 8, 4, '#30a040', S);
+// claws
+[DX+6,DX+9,DX+12].forEach(x=>{ rect(x,DY+21,2,3,'#40c050',S); });
+// back legs
+rect(DX-10, DY+10, 5, 9, '#2a8c3a', S);
+rect(DX-12, DY+17, 8, 4, '#30a040', S);
+[DX-12,DX-9,DX-6].forEach(x=>{ rect(x,DY+20,2,3,'#40c050',S); });
+
+// === REX (dog riding on dragon's back) ===
+const RX=DX, RY=DY-22;
+
+// legs straddling
+rect(RX-4, RY+14, 4, 6, '#6a4020', S);
+rect(RX+2, RY+14, 4, 6, '#6a4020', S);
+
+// body / military jacket
+rect(RX-5, RY+4, 12, 11, '#2a7c3a', S);
+// jacket front
+rect(RX-2, RY+6, 6, 7, '#30883e', S);
+// belt
+rect(RX-5, RY+13, 12, 2, '#6a4020', S);
+px(RX+1, RY+13, '#ccaa00', S); // buckle
+
+// arms
+rect(RX-7, RY+5, 3, 8, '#2a7c3a', S);
+rect(RX+6, RY+5, 3, 8, '#2a7c3a', S);
+// hands (paws)
+rect(RX-7, RY+12, 3, 3, '#c8a068', S);
+rect(RX+6, RY+12, 3, 3, '#c8a068', S);
+
+// neck
+rect(RX-2, RY+1, 6, 4, '#c8a068', S);
+
+// HEAD
+// ears (floppy dog)
+rect(RX-6, RY-8, 4, 7, '#9a7040', S);
+rect(RX+4, RY-8, 4, 7, '#9a7040', S);
+// skull
+for(let dy=-6;dy<=2;dy++) for(let dx=-5;dx<=5;dx++){
+  if((dx/5)*(dx/5)+(dy/6)*(dy/6)<=1) px(RX+dx, RY-2+dy, '#c8a068', S);
+}
+// snout
+rect(RX-3, RY, 6, 4, '#9a7040', S);
+// nose
+rect(RX-1, RY, 3, 2, '#3a2010', S);
+// mouth grin
+px(RX-2, RY+2, '#6a4020', S); px(RX-1, RY+3, '#6a4020', S);
+px(RX+1, RY+3, '#6a4020', S); px(RX+2, RY+2, '#6a4020', S);
+// tongue
+px(RX, RY+4, '#e04040', S);
+
+// eyes (goggles)
+rect(RX-5, RY-6, 4, 3, '#505860', S);
+rect(RX+2, RY-6, 4, 3, '#505860', S);
+rect(RX-4, RY-5, 2, 1, '#40b8c0', S);
+rect(RX+3, RY-5, 2, 1, '#40b8c0', S);
+px(RX-4, RY-5, '#80e8f0', S); // glint
+px(RX+3, RY-5, '#80e8f0', S);
+// strap
+rect(RX-1, RY-5, 2, 1, '#505860', S);
+
+// helmet
+rect(RX-5, RY-11, 12, 5, '#2a7c3a', S);
+rect(RX-4, RY-12, 10, 2, '#30883e', S);
+// star on helmet
+px(RX, RY-10, '#ccaa00', S);
+px(RX-1, RY-9, '#ccaa00', S); px(RX+1, RY-9, '#ccaa00', S);
+px(RX, RY-8, '#ccaa00', S);
+
+// scarf streaming behind Rex
+rect(RX-8, RY+1, 3, 2, '#e04830', S);
+rect(RX-12, RY+2, 5, 2, '#cc3828', S);
+rect(RX-16, RY+3, 4, 2, '#e04830', S);
+rect(RX-19, RY+4, 3, 1, '#cc3828', S);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FIRE PARTICLES from dragon mouth (small, scattered)
+// ══════════════════════════════════════════════════════════════════════════════
+const FX = HX+16, FY = HY+2;
+for(let i=0;i<15;i++){
+  const fx=FX+i*2+Math.floor(Math.random()*3);
+  const fy=FY+Math.floor(Math.random()*6)-3;
+  const col=i<5?'#ffcc00':i<10?'#ff8800':'#ff4400';
+  rect(fx,fy,2,2,col,S);
+}
+
+// subtle vignette
+const vg = ctx.createRadialGradient(W/2,H/2,H*0.3,W/2,H/2,W*0.7);
+vg.addColorStop(0,'rgba(0,0,0,0)');
+vg.addColorStop(1,'rgba(0,0,0,0.4)');
+ctx.fillStyle=vg;
+ctx.fillRect(0,0,W,H);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TEXT — drawn after font loads
+// ══════════════════════════════════════════════════════════════════════════════
+document.fonts.ready.then(()=>{
+  // Title background panel (semi-transparent)
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  ctx.fillRect(W/2-20, 18, W/2+20, 75);
+
+  ctx.textAlign='center';
+  const tx = W*0.75;
+
+  // title shadow
+  ctx.fillStyle='#000000';
+  ctx.font = 'bold 34px "Press Start 2P", monospace';
+  ctx.fillText('BARK OPS 2', tx+3, 55);
+
+  // title main
+  ctx.shadowColor='#ffaa00';
+  ctx.shadowBlur=28;
+  ctx.fillStyle='#ffcc22';
+  ctx.fillText('BARK OPS 2', tx, 52);
+  ctx.shadowBlur=0;
+
+  // white outline effect
+  ctx.strokeStyle='#ffeeaa';
+  ctx.lineWidth=1;
+  ctx.strokeText('BARK OPS 2', tx, 52);
+
+  // subtitle shadow
+  ctx.fillStyle='#000000';
+  ctx.font = '12px "Press Start 2P", monospace';
+  ctx.fillText('DRAGON SQUADRON', tx+2, 78);
+
+  // subtitle
+  ctx.shadowColor='#ff4400';
+  ctx.shadowBlur=14;
+  ctx.fillStyle='#ff6644';
+  ctx.fillText('DRAGON SQUADRON', tx, 76);
+  ctx.shadowBlur=0;
+
+  // ── BOTTOM BAR ──
+  ctx.fillStyle='rgba(0,0,0,0.75)';
+  ctx.fillRect(0, H-32, W, 32);
+  ctx.strokeStyle='#cc3020';
+  ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(0,H-32); ctx.lineTo(W,H-32); ctx.stroke();
+
+  ctx.fillStyle='#ffcc22';
+  ctx.font='10px "Press Start 2P", monospace';
+  ctx.textAlign='left';
+  ctx.fillText('MISSION: DRAGON SYNDICATE', 16, H-10);
+  ctx.textAlign='right';
+  ctx.fillStyle='#cc3020';
+  ctx.fillText('GOODBOYREX.COM', W-16, H-10);
+});
+</script>
+</body>
+</html>
