@@ -18,26 +18,26 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hi
   overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #wrap{position:fixed;inset:0;overflow:hidden;background:var(--bg);touch-action:none}
 #c{position:absolute;left:0;top:0;image-rendering:pixelated;image-rendering:crisp-edges}
-#acct{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(10,6,16,.72);
+#codebox{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(10,6,16,.72);
   padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
   font-family:"Press Start 2P",ui-monospace,monospace;color:var(--ink)}
-#acct[hidden]{display:none!important}
-.acct-box{width:100%;max-width:380px;max-height:100%;overflow:auto;background:#241a30;border:3px solid #f6ecd2;box-shadow:0 0 0 3px #1a1010,0 10px 30px rgba(0,0,0,.6);padding:18px;display:flex;flex-direction:column;gap:12px}
-.acct-box h2{margin:0;font-size:14px;color:var(--accent);text-align:center;text-wrap:balance}
-#acct-msg{margin:0;font-size:10px;line-height:1.7;color:#9ad8ff;min-height:0}
-#acct-msg:empty{display:none}
-#acct form,#acct [data-view]{display:flex;flex-direction:column;gap:8px}
-#acct [data-view][hidden]{display:none}
-#acct label{font-size:10px;color:#c8b8d0;letter-spacing:.04em}
-#acct input{font:inherit;font-size:12px;padding:10px;border:2px solid #5a4a78;background:#120e1a;color:var(--ink);border-radius:0;width:100%;box-sizing:border-box}
-#acct input:focus-visible,#acct button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.acct-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
-#acct button{font:inherit;font-size:10px;padding:10px 12px;border:2px solid #1a1010;background:var(--accent);color:#1a1010;cursor:pointer;flex:1 1 auto;min-width:0}
-#acct button[data-act="signup"],#acct button[data-act="signout"],#acct button[data-act="keeplocal"]{background:#9ad8ff}
-#acct button:disabled{opacity:.55;cursor:wait}
-#acct .acct-link,#acct .acct-close{background:none;border:none;color:#c8b8d0;text-decoration:underline;padding:6px;flex:none;align-self:center}
-.acct-who{margin:0;font-size:10px;line-height:1.8;overflow-wrap:anywhere}
-#acct-choice-text{margin:0;font-size:10px;line-height:1.8}
+#codebox[hidden]{display:none!important}
+.code-box{width:100%;max-width:380px;max-height:100%;overflow:auto;background:#241a30;border:3px solid #f6ecd2;box-shadow:0 0 0 3px #1a1010,0 10px 30px rgba(0,0,0,.6);padding:18px;display:flex;flex-direction:column;gap:12px}
+.code-box h2{margin:0;font-size:14px;color:var(--accent);text-align:center;text-wrap:balance}
+.code-box p{margin:0;font-size:10px;line-height:1.8}
+#code-msg{color:#9ad8ff}
+#code-msg:empty{display:none}
+#codebox [data-view]{display:flex;flex-direction:column;gap:10px}
+#codebox [data-view][hidden]{display:none}
+#codebox label{font-size:10px;line-height:1.6;color:#c8b8d0;letter-spacing:.04em;margin-top:6px}
+/* 16px text keeps iPhones from zooming in when a box is tapped */
+#codebox textarea{font:16px/1.35 ui-monospace,Menlo,monospace;padding:8px;border:2px solid #5a4a78;background:#120e1a;color:var(--ink);border-radius:0;width:100%;box-sizing:border-box;resize:none;word-break:break-all;-webkit-user-select:text;user-select:text}
+#codebox textarea:focus-visible,#codebox button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.code-row{display:flex;flex-wrap:wrap;gap:8px}
+#codebox button{font:inherit;font-size:10px;padding:10px 12px;border:2px solid #1a1010;background:var(--accent);color:#1a1010;cursor:pointer;flex:1 1 auto;min-width:0}
+#codebox button[data-act="share"],#codebox button[data-act="cancel"]{background:#9ad8ff}
+#codebox button:disabled{opacity:.55;cursor:wait}
+#codebox .code-close{background:none;border:none;color:#c8b8d0;text-decoration:underline;padding:6px;flex:none;align-self:center}
 #touch{position:fixed;inset:0;pointer-events:none;font-family:"Press Start 2P",ui-monospace,monospace}
 #touch button{pointer-events:auto;font:inherit;color:var(--ink);background:var(--btn);
   border:2px solid var(--btn-edge);border-radius:50%;opacity:.82;touch-action:none}
@@ -67,41 +67,29 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hi
 </head>
 <body>
 <div id="wrap"><canvas id="c" aria-label="Good Boy Rex game screen"></canvas></div>
-<div id="acct" hidden role="dialog" aria-modal="true" aria-labelledby="acct-title">
-  <div class="acct-box">
-    <h2 id="acct-title">Your Account</h2>
-    <p id="acct-msg" role="status" aria-live="polite"></p>
-    <form id="acct-form" data-view="signin" novalidate>
-      <label for="acct-email">Email</label>
-      <input id="acct-email" type="email" autocomplete="email" inputmode="email" required>
-      <label for="acct-pass">Password</label>
-      <input id="acct-pass" type="password" autocomplete="current-password" minlength="6" required>
-      <div class="acct-row">
-        <button type="submit" data-act="signin">Sign in</button>
-        <button type="button" data-act="signup">Create account</button>
+<div id="codebox" hidden role="dialog" aria-modal="true" aria-labelledby="code-title">
+  <div class="code-box">
+    <h2 id="code-title">Save Code</h2>
+    <p id="code-msg" role="status" aria-live="polite"></p>
+    <div data-view="main">
+      <p>Your game saves on this device by itself. To play on another device, copy your save code, then load it there.</p>
+      <textarea id="code-out" rows="4" readonly hidden aria-label="Your save code"></textarea>
+      <div class="code-row">
+        <button type="button" data-act="copy">Copy my code</button>
+        <button type="button" data-act="share" hidden>Share</button>
       </div>
-      <button type="button" class="acct-link" data-act="forgot">Forgot password?</button>
-    </form>
-    <div data-view="in">
-      <p class="acct-who">Signed in as <b id="acct-who"></b></p>
-      <div class="acct-row">
-        <button type="button" data-act="savenow">Save to account now</button>
-        <button type="button" data-act="signout">Sign out</button>
+      <label for="code-in">Got a code from another device? Paste it here.</label>
+      <textarea id="code-in" rows="3" placeholder="REX1..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+      <div class="code-row"><button type="button" data-act="load">Load this code</button></div>
+    </div>
+    <div data-view="confirm">
+      <p id="code-confirm-text"></p>
+      <div class="code-row">
+        <button type="button" data-act="replace">Yes, load it</button>
+        <button type="button" data-act="cancel">Cancel</button>
       </div>
     </div>
-    <form id="acct-recover" data-view="recover" novalidate>
-      <label for="acct-newpass">New password</label>
-      <input id="acct-newpass" type="password" autocomplete="new-password" minlength="6" required>
-      <div class="acct-row"><button type="submit" data-act="newpass">Set new password</button></div>
-    </form>
-    <div data-view="choice">
-      <p id="acct-choice-text"></p>
-      <div class="acct-row">
-        <button type="button" data-act="useonline">Load my account save</button>
-        <button type="button" data-act="keeplocal">Keep this game</button>
-      </div>
-    </div>
-    <button type="button" class="acct-close" data-act="close">Close</button>
+    <button type="button" class="code-close" data-act="close">Close</button>
   </div>
 </div>
 <div id="touch" hidden>
@@ -1187,7 +1175,7 @@ setInterval(()=>{ if(!AC||!curTrack||!musicOn) return; const tr=TRACKS[curTrack]
 const keys={}, pressed={}, touchHeld={}, touchPressed={}; const joy={x:0,y:0,on:false};
 const BIND={up:['arrowup','w'],down:['arrowdown','s'],left:['arrowleft','a'],right:['arrowright','d'],bite:['j',' ','z'],bark:['k','x'],
   talk:['e','enter'],treat:['h'],dash:['l','c'],travel:['t'],log:['q','tab'],map:['m'],pause:['escape','p'],run:['shift'],mute:['n']};
-addEventListener('keydown',e=>{ if(acctOpen){ if(e.key==='Escape') closeAccount(); return; } const k=e.key.toLowerCase(); if(!keys[k]) pressed[k]=true; keys[k]=true; initAudio();
+addEventListener('keydown',e=>{ if(codeOpen){ if(e.key==='Escape') closeSaveCode(); return; } const k=e.key.toLowerCase(); if(!keys[k]) pressed[k]=true; keys[k]=true; initAudio();
   if([' ','arrowup','arrowdown','arrowleft','arrowright','tab'].includes(k)) e.preventDefault(); });
 addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
 addEventListener('blur',()=>{ for(const k in keys) keys[k]=false; });
@@ -1254,7 +1242,7 @@ function newState(){
     x:LOC.keep[0]*16+8,y:(LOC.keep[1]+3)*16+8,track:'main',seen:'',bossDone:{},named:{}};
 }
 let memSave=null;
-function save(){ if(!S) return; S.x=P.x; S.y=P.y; S.seen=seenToStr(); S.savedAt=Date.now(); memSave=JSON.stringify(S); try{ localStorage.setItem(SAVE_KEY,memSave); }catch(e){} cloudPushSoon(); }
+function save(){ if(!S) return; S.x=P.x; S.y=P.y; S.seen=seenToStr(); S.savedAt=Date.now(); memSave=JSON.stringify(S); try{ localStorage.setItem(SAVE_KEY,memSave); }catch(e){} }
 function loadSave(){ try{ const s=localStorage.getItem(SAVE_KEY)||memSave; return s?JSON.parse(s):null; }catch(e){ try{ return memSave?JSON.parse(memSave):null; }catch(_){ return null; } } }
 let hasSave=!!loadSave();
 // fog of war (8x8 chunks)
@@ -1965,7 +1953,7 @@ function updateParts(dt){
 // =====================================================================
 let lastHit=0;
 function update(dt){
-  if(acctOpen){ T+=dt; clearPressed(); return; }
+  if(codeOpen){ T+=dt; clearPressed(); return; }
   T+=dt; shake=Math.max(0,shake-dt);
   if(hit('mute')){ musicOn=!musicOn; saveSettings(); toast(musicOn?'Music on':'Music off'); }
   switch(mode){
@@ -2006,7 +1994,7 @@ function updateTitle(){
   const opts=titleOpts().length;
   if(hit('up')){ titleSel=(titleSel+opts-1)%opts; SFX.talk(); } if(hit('down')){ titleSel=(titleSel+1)%opts; SFX.talk(); }
   if(confirmHit()){ initAudio(); const o=titleOpts()[titleSel];
-    if(o==='Account'){ SFX.talk(); openAccount(); }
+    if(o==='Save Code'){ SFX.talk(); openSaveCode(); }
     else if(o==='Continue'){ SFX.quest(); startGame(false); }
     else { SFX.talk(); titleStage='diff'; titleSel=1; } }
 }
@@ -2402,9 +2390,9 @@ function renderTitle(){
   opts.forEach((o,k)=>{ const sel=k===titleSel; text((sel?'> ':'  ')+o+(sel?' <':'  '),VW/2,oy+k*12,sel?'#ffd84a':'#c8b8d0',8,'center'); });
   if(diff) text(['Hamsters hit softer','The classic adventure','Tough hamsters, few hearts'][titleSel],VW/2,oy+38,'#9ad8ff',8,'center');
   else if(oy+opts.length*13<VH-26) text(touchMode?'Tap to start':'Enter / Space to start',VW/2,VH-24,'#fff6dc',8,'center');
-  text(cloudUser?'Saving to your account':'goodboyrex.com',VW/2,VH-11,cloudUser?'#8af08a':'#8a7a9a',8,'center');
+  text('goodboyrex.com',VW/2,VH-11,'#8a7a9a',8,'center');
 }
-function titleOpts(){ return (hasSave?['Continue','New Game']:['Start Adventure']).concat(['Account']); }
+function titleOpts(){ return (hasSave?['Continue','New Game']:['Start Adventure']).concat(['Save Code']); }
 
 
 // =====================================================================
@@ -2747,14 +2735,14 @@ function pauseItems(){
       {l:'Outfit: '+OUTFITS[S.outfit].name,c(d){ const i=outs.indexOf(S.outfit); S.outfit=outs[(i+d+outs.length)%outs.length]; }},
       {l:'Companion: '+(S.pet?PETS[S.pet].name:'None'),c(d){ if(pets.length<2){ toast('No companions yet. Help villagers to make friends!'); return; } const i=pets.indexOf(S.pet); setPet(pets[(i+d+pets.length)%pets.length]); }},
       {l:'Difficulty: '+DIFF[S.diff].name,c(d){ S.diff=(S.diff+d+3)%3; }},
-      {l:'Account'+(cloudUser?': signed in':''),a(){ openAccount(); }},
+      {l:'Save code',a(){ openSaveCode(); }},
       {l:'Controls',a(){ say([['Controls','Move: WASD / Arrows. Run: hold Shift.'],['Controls','Bite: J or Space. Bark: K. Dash: L or C (once Coach Corgi teaches you).'],['Controls','Talk / open chests: E or Enter. Walk into doors to go inside.'],['Controls','Fast travel: T (or click a blue flag on the map).'],['Controls','Eat treat: H. Quest log: Q. Map: M. Music: N. Pause: Esc or the pause button.'],['Controls','On touch screens: drag the left side to move and use the buttons on the right.']]); }},
       {l:'< Back',a(){ pausePage='main'; pauseSel=5; }},
     ];
   }
   return [
     {l:'Resume',a(){ mode='play'; }},
-    {l:'Save game',a(){ save(); hasSave=true; cloudPushSoon(true); toast(cloudUser?'Game saved to your account!':'Game saved!','#8af08a'); mode='play'; }},
+    {l:'Save game',a(){ save(); hasSave=true; toast('Game saved!','#8af08a'); mode='play'; }},
     {l:'Quest log',a(){ mode='log'; logSel=0; }},
     {l:'Map',a(){ mode='map'; }},
     {l:'Fast travel',a(){ openTravel(); }},
@@ -3000,100 +2988,89 @@ function updateWalkers(dt){
 }
 
 // =====================================================================
-//  ONLINE ACCOUNTS (Supabase) — players sign up with email to save online
+//  SAVE CODES — copy a code on one device, paste it on another to keep playing
 // =====================================================================
-// ===== SETUP: paste your Supabase project's URL and anon (public) key here.
-// ===== Find them in Supabase: Project Settings -> API. Leave empty to keep device-only saves.
-const CLOUD={ url:'', anonKey:'' };
-let sb=null, cloudUser=null, cloudTimer=null, cloudLastPush=0, acctOpen=false, acctView='signin', acctPending=null;
-const cloudConfigured=()=>!!(CLOUD.url&&CLOUD.anonKey);
-const $a=id=>document.getElementById(id);
-function cloudInit(){
-  if(!cloudConfigured()) return;
-  const start=()=>{ try{
-      sb=window.supabase.createClient(CLOUD.url,CLOUD.anonKey);
-      sb.auth.onAuthStateChange((ev,session)=>{ cloudUser=session?session.user:null; if(ev==='PASSWORD_RECOVERY') openAccount('recover'); else if(acctOpen) acctShow(); });
-      sb.auth.getSession().then(({data})=>{ cloudUser=data&&data.session?data.session.user:null; if(cloudUser) cloudSync(false); });
-    }catch(e){ sb=null; } };
-  if(window.supabase&&window.supabase.createClient) start();
-  else { const sc=document.createElement('script'); sc.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js'; sc.onload=start; document.head.appendChild(sc); }
+// A code is "REX1." + the save squeezed with zlib deflate and written in base64url letters.
+// zlib's checksum makes a code that was cut short or mistyped fail cleanly instead of loading junk.
+// Browsers without CompressionStream make "REX0." codes (the save as plain text) instead.
+let codeOpen=false, codeView='main', codePending=null;
+const $c=id=>document.getElementById(id);
+function b64url(bytes){ let s=''; for(let i=0;i<bytes.length;i+=0x8000) s+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000)); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function unb64url(str){ const s=atob(str.replace(/-/g,'+').replace(/_/g,'/')); const out=new Uint8Array(s.length); for(let i=0;i<s.length;i++) out[i]=s.charCodeAt(i); return out; }
+async function pipeBytes(bytes,stream){ return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
+async function makeSaveCode(obj){
+  const json=new TextEncoder().encode(JSON.stringify(obj));
+  if(typeof CompressionStream==='function') return 'REX1.'+b64url(await pipeBytes(json,new CompressionStream('deflate')));
+  return 'REX0.'+b64url(json);
+}
+// returns {save} or {err} with a message for the player
+async function readSaveCode(code){
+  const m=/^REX([01])\.([A-Za-z0-9_-]+)$/i.exec(String(code).replace(/\s+/g,''));
+  const bad="That code didn't work. Make sure you copied the whole code, from REX to the very end.";
+  if(!m) return {err:bad};
+  if(m[1]==='1'&&typeof DecompressionStream!=='function') return {err:"This browser is too old to read save codes. Try a newer browser."};
+  try{
+    let bytes=unb64url(m[2]);
+    if(m[1]==='1') bytes=await pipeBytes(bytes,new DecompressionStream('deflate'));
+    const s=JSON.parse(new TextDecoder().decode(bytes)), num=v=>typeof v==='number'&&isFinite(v);
+    if(!s||typeof s!=='object'||!num(s.lvl)||!num(s.main)||!num(s.hp)||!s.q||typeof s.q!=='object') return {err:bad};
+    return {save:s};
+  }catch(e){ return {err:bad}; }
 }
 function writeLocalSave(obj){ memSave=JSON.stringify(obj); try{ localStorage.setItem(SAVE_KEY,memSave); }catch(e){} hasSave=true; }
-function cloudPushSoon(now){ if(!sb||!cloudUser) return; clearTimeout(cloudTimer); cloudTimer=setTimeout(cloudPush,now?0:Math.max(0,10000-(Date.now()-cloudLastPush))); }
-async function cloudPush(){
-  const data=loadSave(); if(!sb||!cloudUser||!data) return false; cloudLastPush=Date.now();
-  try{ const {error}=await sb.from('saves').upsert({user_id:cloudUser.id,data,updated_at:new Date().toISOString()}); return !error; }catch(e){ return false; }
+function saveSummary(s){ const done=QUESTS.filter(q=>s.q&&s.q[q.id]&&s.q[q.id].st==='done').length; return 'level '+(s.lvl||1)+', '+done+(done===1?' quest':' quests')+' done'; }
+function codeMsg(t){ $c('code-msg').textContent=t||''; }
+function codeShow(view){
+  codeView=view;
+  document.querySelectorAll('#codebox [data-view]').forEach(el=>el.hidden=el.dataset.view!==view);
+  document.querySelector('#codebox .code-close').hidden=view==='confirm';
 }
-async function cloudFetch(){ const {data,error}=await sb.from('saves').select('data').eq('user_id',cloudUser.id).maybeSingle(); if(error) throw error; return data?data.data:null; }
-// match up this device's save with the account's save after signing in or reopening the page
-async function cloudSync(askIfDifferent){
-  let remote; try{ remote=await cloudFetch(); }catch(e){ acctMsg("Signed in, but your online save couldn't be loaded right now."); return; }
-  const local=S?Object.assign({},S,{savedAt:S.savedAt||0}):loadSave();
-  if(!remote){ if(S) save(); if(loadSave()) await cloudPush(); return; }
-  if(!S){ if(!local||(remote.savedAt||0)>=(local.savedAt||0)){ writeLocalSave(remote); titleSel=0; } else cloudPush(); return; }
-  if((remote.savedAt||0)>(S.savedAt||0)+2000&&askIfDifferent){
-    acctPending=remote; const done=QUESTS.filter(q=>remote.q&&remote.q[q.id]&&remote.q[q.id].st==='done').length;
-    $a('acct-choice-text').textContent='Your account already has a saved game (level '+(remote.lvl||1)+', '+done+' quests done, saved '+new Date(remote.savedAt).toLocaleString()+'). Which game do you want to keep playing?';
-    acctShow('choice'); return; }
-  save(); cloudPushSoon(true);
+function openSaveCode(){
+  codeOpen=true; codePending=null; codeMsg(''); codeShow('main');
+  const out=$c('code-out'), copy=document.querySelector('#codebox [data-act="copy"]'), share=document.querySelector('#codebox [data-act="share"]');
+  out.value=''; out.hidden=true; $c('code-in').value=''; copy.disabled=share.disabled=true;
+  $c('codebox').hidden=false; for(const k in keys) keys[k]=false;
+  if(S) save(); const data=loadSave();
+  // the code is made as soon as the box opens, so Copy and Share can run right inside the tap (Safari requires that)
+  if(!data) codeMsg("There's no saved game on this device yet. Start an adventure first, then come back for your code.");
+  else makeSaveCode(data).then(code=>{ if(!codeOpen) return; out.value=code; out.hidden=false; copy.disabled=share.disabled=false; });
+  setTimeout(()=>{ const f=data?copy:$c('code-in'); if(f&&!f.disabled) f.focus(); else $c('code-in').focus(); },30);
 }
-function acctMsg(t){ $a('acct-msg').textContent=t||''; }
-function acctBusy(b){ document.querySelectorAll('#acct button').forEach(x=>x.disabled=b); }
-function acctShow(view){
-  if(view) acctView=view;
-  if(!cloudConfigured()) acctView='off';
-  else if(cloudUser&&acctView==='signin') acctView='in';
-  else if(!cloudUser&&acctView==='in') acctView='signin';
-  document.querySelectorAll('#acct [data-view]').forEach(el=>el.hidden=el.dataset.view!==acctView);
-  document.querySelector('#acct .acct-close').hidden=acctView==='choice';
-  if(acctView==='off') acctMsg("Online accounts aren't switched on for this copy of the game yet. Your progress still saves on this device.");
-  if(acctView==='in') $a('acct-who').textContent=cloudUser.email||'your account';
+function closeSaveCode(){
+  if(codeView==='confirm'){ codePending=null; codeShow('main'); codeMsg(''); return; }
+  codeOpen=false; $c('codebox').hidden=true; cv.focus&&cv.focus();
 }
-function openAccount(view){
-  acctOpen=true; acctMsg(''); $a('acct').hidden=false; acctShow(view||(cloudUser?'in':'signin'));
-  for(const k in keys) keys[k]=false;
-  setTimeout(()=>{ const f=acctView==='signin'?$a('acct-email'):acctView==='recover'?$a('acct-newpass'):document.querySelector('#acct [data-view]:not([hidden]) button')||document.querySelector('#acct .acct-close'); if(f) f.focus(); },30);
+function selectCode(){ const out=$c('code-out'); out.focus(); out.select(); out.setSelectionRange(0,out.value.length); }
+function loadFromCode(s){
+  writeLocalSave(s); codeOpen=false; codePending=null; $c('codebox').hidden=true; codeShow('main');
+  resetRun(); initAudio(); startGame(false); SFX.quest(); toast('Loaded your save code!','#8af08a');
 }
-function closeAccount(){ if(acctView==='choice'&&acctPending) return; // must pick which save to keep, so nothing gets overwritten
-  acctOpen=false; $a('acct').hidden=true; acctPending=null; cv.focus&&cv.focus(); }
-function friendlyAuthError(err){ const m=(err&&err.message||'').toLowerCase();
-  if(m.includes('invalid login')) return "That email and password don't match. Check them and try again.";
-  if(m.includes('already registered')||m.includes('already been registered')) return 'That email already has an account. Try signing in instead.';
-  if(m.includes('not confirmed')) return 'Please confirm your email first. Check your inbox for the link we sent.';
-  if(m.includes('password')&&m.includes('6')) return 'Passwords need at least 6 characters.';
-  if(m.includes('rate')||m.includes('too many')) return 'Too many tries. Wait a minute, then try again.';
-  return 'Something went wrong: '+(err&&err.message||'please try again.'); }
-async function acctAction(act){
-  const email=$a('acct-email').value.trim(), pass=$a('acct-pass').value;
-  const needCreds=()=>{ if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ acctMsg('Type a valid email address, like name@example.com.'); $a('acct-email').focus(); return false; }
-    if(pass.length<6){ acctMsg('Passwords need at least 6 characters.'); $a('acct-pass').focus(); return false; } return true; };
-  if(act==='close') return closeAccount();
-  if(!sb&&act!=='close'){ acctMsg(cloudConfigured()?'Still connecting to the account service. Try again in a moment.':''); return; }
-  acctBusy(true);
-  try{
-    if(act==='signin'){ if(!needCreds()) return; acctMsg('Signing in...');
-      const {error}=await sb.auth.signInWithPassword({email,password:pass}); if(error){ acctMsg(friendlyAuthError(error)); return; }
-      $a('acct-pass').value=''; acctMsg('Signed in! Your game now saves to your account.'); acctShow('in'); await cloudSync(true); }
-    else if(act==='signup'){ if(!needCreds()) return; acctMsg('Creating your account...');
-      const {data,error}=await sb.auth.signUp({email,password:pass,options:{emailRedirectTo:location.origin+location.pathname}});
-      if(error){ acctMsg(friendlyAuthError(error)); return; } $a('acct-pass').value='';
-      if(data&&data.session){ acctMsg('Account created! Your game now saves to your account.'); acctShow('in'); await cloudSync(true); }
-      else acctMsg('Almost done! We sent a link to '+email+'. Click it to confirm your account, then sign in here.'); }
-    else if(act==='forgot'){ if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ acctMsg('Type your email address above first, then press "Forgot password?" again.'); $a('acct-email').focus(); return; }
-      await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname}); acctMsg('If '+email+' has an account, we sent it a link to reset the password.'); }
-    else if(act==='newpass'){ const np=$a('acct-newpass').value; if(np.length<6){ acctMsg('Passwords need at least 6 characters.'); return; }
-      const {error}=await sb.auth.updateUser({password:np}); if(error){ acctMsg(friendlyAuthError(error)); return; } $a('acct-newpass').value=''; acctMsg('Your password is changed.'); acctShow('in'); }
-    else if(act==='savenow'){ if(S) save(); const ok=await cloudPush(); acctMsg(ok?'Saved to your account.':(loadSave()?"Couldn't save online right now. Your game is still saved on this device.":'Start a game first, then save it here.')); }
-    else if(act==='signout'){ if(S) save(); await cloudPush(); await sb.auth.signOut(); cloudUser=null; acctMsg('Signed out. Your game still saves on this device.'); acctShow('signin'); }
-    else if(act==='useonline'&&acctPending){ writeLocalSave(acctPending); acctPending=null; closeAccount(); startGame(false); toast('Loaded your account save.','#8af08a'); }
-    else if(act==='keeplocal'){ acctPending=null; save(); await cloudPush(); acctMsg('Kept this game. It is now saved to your account.'); acctShow('in'); }
-  } catch(e){ acctMsg(friendlyAuthError(e)); }
-  finally{ acctBusy(false); }
+async function codeAction(act){
+  const code=$c('code-out').value;
+  if(act==='close') return closeSaveCode();
+  if(act==='cancel'){ codePending=null; codeShow('main'); codeMsg(''); return; }
+  if(act==='copy'&&code){
+    const done=ok=>{ codeMsg(ok?'Copied! On the other device, open Good Boy Rex, choose Save Code and paste it.':'Press and hold the code to copy it.'); if(!ok) selectCode(); };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(()=>done(true),()=>{ selectCode(); let ok=false; try{ ok=document.execCommand('copy'); }catch(e){} done(ok); });
+    else { selectCode(); let ok=false; try{ ok=document.execCommand('copy'); }catch(e){} done(ok); }
+    return; }
+  if(act==='share'&&code){
+    try{ await navigator.share({title:'Good Boy Rex save code',text:code}); codeMsg('Sent! On the other device, open Good Boy Rex, choose Save Code and paste it.'); }
+    catch(e){ if(!e||e.name!=='AbortError') codeMsg("Couldn't share. Use Copy my code instead."); }
+    return; }
+  if(act==='load'){
+    const raw=$c('code-in').value; if(!raw.trim()){ codeMsg('Paste a save code in the box first.'); $c('code-in').focus(); return; }
+    const res=await readSaveCode(raw); if(res.err){ codeMsg(res.err); return; }
+    const cur=S||loadSave();
+    if(!cur){ loadFromCode(res.save); return; }
+    codePending=res.save; codeMsg('');
+    $c('code-confirm-text').textContent='This replaces the game on this device ('+saveSummary(cur)+') with the game from the code ('+saveSummary(res.save)+'). Load it?';
+    codeShow('confirm'); const y=document.querySelector('#codebox [data-act="replace"]'); if(y) y.focus(); return; }
+  if(act==='replace'&&codePending) loadFromCode(codePending);
 }
-document.querySelectorAll('#acct [data-act]').forEach(b=>b.addEventListener('click',e=>{ e.preventDefault(); acctAction(b.dataset.act); }));
-$a('acct-form').addEventListener('submit',e=>{ e.preventDefault(); acctAction('signin'); });
-$a('acct-recover').addEventListener('submit',e=>{ e.preventDefault(); acctAction('newpass'); });
-$a('acct').addEventListener('click',e=>{ if(e.target.id==='acct') closeAccount(); });
+document.querySelectorAll('#codebox [data-act]').forEach(b=>b.addEventListener('click',e=>{ e.preventDefault(); codeAction(b.dataset.act); }));
+$c('codebox').addEventListener('click',e=>{ if(e.target.id==='codebox') closeSaveCode(); });
+if(navigator.share) document.querySelector('#codebox [data-act="share"]').hidden=false;
 
 // =====================================================================
 //  FAST TRAVEL — visited areas only (not the special areas)
@@ -3147,7 +3124,7 @@ function frame(t){
   requestAnimationFrame(frame);
 }
 function boot(){
-  loadSettings(); cloudInit();
+  loadSettings();
   applySeason(); genWorld(); initWalkers(); placeWaypoints(); genTiles(); genThemeTiles(); genObjects(); genObjects2(); genThemeObjects(); buildMinimap();
   P.x=96*16; P.y=100*16;
   requestAnimationFrame(t=>{ lastT=t; frame(t); });
@@ -3155,7 +3132,7 @@ function boot(){
 const fontReady=(document.fonts&&document.fonts.load)?Promise.race([document.fonts.load('8px "Press Start 2P"'),new Promise(r=>setTimeout(r,2000))]):Promise.resolve();
 fontReady.then(boot,boot);
 // handle used by automated tests
-window.__rex={CLOUD,get cloudUser(){return cloudUser;},get acctOpen(){return acctOpen;},openAccount,NPCBY,SPREAD,LAB,get labRise(){return labRise;},startLabEvent,ROOMS,WARPS,BOSSES,setPet,get hazards(){return hazards;},get warpFx(){return warpFx;},room,get S(){return S;},P,QUESTS,NPCS,LOC,get mode(){return mode;},set mode(v){mode=v;},startGame,reach,ground,obj,reg,I,get chests(){return chests;},get enemies(){return enemies;},get boss(){return bossActive;},TUT,get tutT(){return tutT;}};
+window.__rex={get codeOpen(){return codeOpen;},openSaveCode,makeSaveCode,readSaveCode,NPCBY,SPREAD,LAB,get labRise(){return labRise;},startLabEvent,ROOMS,WARPS,BOSSES,setPet,get hazards(){return hazards;},get warpFx(){return warpFx;},room,get S(){return S;},P,QUESTS,NPCS,LOC,get mode(){return mode;},set mode(v){mode=v;},startGame,reach,ground,obj,reg,I,get chests(){return chests;},get enemies(){return enemies;},get boss(){return bossActive;},TUT,get tutT(){return tutT;}};
 </script>
 </body>
 </html>
