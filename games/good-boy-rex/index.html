@@ -1,11 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Good Boy Rex: The Hamster Uprising</title>
-<meta name="description" content="A 16-bit style exploration adventure. Explore the island, help the villagers and stop the Hamster Uprising. Plays in the browser on computers and phones.">
-<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Good Boy Rex</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <style>
@@ -53,6 +47,8 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hi
 #b-bark{right:72px;top:88px}
 #b-talk{right:72px;top:0}
 #b-dash{right:0;top:120px}
+#b-item{right:144px;top:44px;font-size:10px!important}
+#abtns #b-swap{right:144px;top:6px;width:62px;height:28px;border-radius:8px;font-size:8px}
 #tbtns{position:absolute;right:calc(10px + env(safe-area-inset-right,0px));top:calc(64px + env(safe-area-inset-top,0px));
   display:flex;flex-direction:column;gap:8px}
 #tbtns button{border-radius:8px;font-size:8px;padding:8px 6px;min-width:58px}
@@ -61,11 +57,6 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hi
   font-size:8px;opacity:.6;pointer-events:none}
 @media (prefers-reduced-motion: reduce){ #touch button{transition:none} }
 </style>
-  <!-- Vercel Web Analytics (cookieless) plus time on page for the weekly report -->
-  <script defer src="/_vercel/insights/script.js"></script>
-  <script defer src="/engaged.js"></script>
-</head>
-<body>
 <div id="wrap"><canvas id="c" aria-label="Good Boy Rex game screen"></canvas></div>
 <div id="codebox" hidden role="dialog" aria-modal="true" aria-labelledby="code-title">
   <div class="code-box">
@@ -99,6 +90,8 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hi
     <button id="b-bite" data-a="bite" aria-label="Bite">BITE</button>
     <button id="b-bark" data-a="bark" aria-label="Bark">BARK</button>
     <button id="b-dash" data-a="dash" aria-label="Dash">DASH</button>
+    <button id="b-item" data-a="item" aria-label="Use item" hidden>ITEM</button>
+    <button id="b-swap" data-a="swap" aria-label="Switch item" hidden>SWAP</button>
   </div>
   <div id="tbtns">
     <button data-a="log">QUESTS</button>
@@ -172,13 +165,17 @@ const inb=(x,y)=>x>=0&&y>=0&&x<MW&&y<MH;
 // ---------- key locations ----------
 const LOC={
   village:[96,100], keep:[74,114], crossroads:[96,60], bridgeFoot:[96,36],
-  gateW:[82,100], gateE:[110,100], gateN:[96,86], gateS:[96,114],
+  gateW:[82,100], gateE:[134,100], gateN:[96,86], gateS:[96,114],
   woodsHub:[46,88], shoreHub:[140,108], peaksHub:[58,46], cavernsHub:[134,48],
   arenaWoods:[28,74], arenaShore:[154,116], arenaPeaks:[44,36], arenaCaverns:[152,38], throne:[96,11],
   oak:[22,93], lighthouse:[170,97], summit:[28,55], lavafall:[168,64],
   hauntedHub:[72,160], mansionDoor:[84,176], caveMouth:[129,112], caveFront:[129,113], grottoArrive:[222,97], grottoExit:[220,97],
   skyArrive:[226,37], peaksBalloonArrive:[56,42],
 };
+// Market Street: Barkton's newer east end (the Armory, the Inn, stalls, a fountain and a clock tower)
+const MARKET={cx:120,cy:99,rx:14,ry:9};
+const mkE=(x,y,pad)=>Math.abs((x-MARKET.cx)/(MARKET.rx+(pad||0)))**4+Math.abs((y-MARKET.cy)/(MARKET.ry+(pad||0)))**4;
+const inMarket=(x,y)=>mkE(x,y)<1;
 // interior rooms live in a far corner of the map; doors warp Rex in and out
 // ---------- seasons: the haunted island changes with the real calendar ----------
 // add #spring, #summer, #fall or #winter to the page address to preview a season
@@ -199,6 +196,8 @@ const ROOMS={
  4:{x:240,y:152,w:14,h:10,name:'Puppy Shelter',style:'shelter',music:'indoor'},
  5:{x:218,y:172,w:22,h:18,name:'Nibblula Manor',style:'mansion',music:'spooky'},
  6:{x:244,y:170,w:22,h:18,name:"Dr. Nibbles' Laboratory",style:'lab',music:'boss'},
+ 7:{x:257,y:132,w:13,h:10,name:"Ironpaw's Armory",style:'armory',music:'indoor'},
+ 8:{x:257,y:146,w:13,h:9,name:'The Sleepy Bone Inn',style:'inn',music:'indoor'},
 };
 const WARPS={};
 
@@ -284,6 +283,15 @@ const NPCS=[
  {id:'noodle',name:'Nanny Noodle',sp:'sheep',fur:'#f4d8e8',belly:'#ffffff',cloth:'#8a4aa0',x:247,y:155,petkeeper:true,chat:["Every pup deserves a friend."]},
  {id:'puddles',name:'Puddles',sp:'dog',fur:'#c89060',belly:'#f8e0c0',cloth:'#60a0e0',x:243,y:159,chat:["Rex! Rex! Can you do a trick? Roll over!"]},
  {id:'waffles',name:'Waffles',sp:'dog',fur:'#f0d090',belly:'#fff8e0',cloth:'#f08040',x:250,y:157,chat:["When I grow up I wanna bite hamsters too!"]},
+ // Market Street
+ {id:'ironpaw',name:'Ironpaw',sp:'dog',fur:'#8a7a6a',belly:'#c8b8a4',cloth:'#5a5a66',x:263,y:137,hat:'goggles',armory:true,chat:["A good pup needs good gear."]},
+ {id:'tilly',name:'Innkeeper Tilly',sp:'bear',fur:'#c89a6a',belly:'#f0d8b8',cloth:'#2a7a6a',x:263,y:150,hat:'bonnet',inn:true,chat:["Every hero needs a good nap."]},
+ {id:'figgy',name:'Figgy',sp:'bunny',fur:'#e8d0b0',belly:'#fff4e0',cloth:'#e06a3a',x:111,y:104,hat:'straw',
+  chat:["Fresh apples! Juicy oranges! Hamster-proof bananas!","The hamsters tried to steal my carrots. Tried.","Market Street is the busiest spot on the island now!"]},
+ {id:'barnaby',name:'Barnaby',sp:'fox',fur:'#d07a3a',belly:'#fff0e0',cloth:'#6a3a8a',x:116,y:104,hat:'tophat',
+  chat:["Bells, balls and squeaky toys! Something for every good boy.","Ironpaw's slingshots are the real deal. Trust a fox.","Psst. The clock tower is always five minutes slow."]},
+ {id:'pepper',name:'Pepper',sp:'dog',fur:'#3a3a3a',belly:'#e8e8e8',cloth:'#e04a6a',x:117,y:100,chat:["Have you seen the new Armory?"]},
+ {id:'tumble',name:'Tumble',sp:'cat',fur:'#e8e0d0',belly:'#ffffff',cloth:'#4a8ad0',x:126,y:101,hat:'beanie',hatc:'#f0c040',chat:["Barkton got so much bigger!"]},
 ];
 const NPCBY={}; NPCS.forEach(n=>NPCBY[n.id]=n);
 
@@ -507,6 +515,9 @@ const WALKERS={
   rosie:["Squeak squeak! That's my favorite sound.","Wanna play fetch later?","I heard you beat Mr. Whiskers. So brave!"],
   gulliver:["Neither rain nor hamsters shall stop the mail!","My wings are tired today. Too many letters!","Got any mail for me? No? Just checking."],
   bristle:["In my day, hamsters knew their place. In a cage.","You remind me of myself as a pup.","Keep your nose to the wind, young one."],
+  // Market Street regulars
+  pepper:["Have you seen the new Armory? Ironpaw makes the best slingshots!","Market day is every day in Barkton!","I bought a boomerang once. It came back. I ran away."],
+  tumble:["Barkton got so much bigger since you saved it, Rex!","Figgy's fruit is the freshest on the island.","The clock tower chimes at noon. And whenever it feels like it."],
 };
 for(let i=QUESTS.length-1;i>=0;i--) if(WALKERS[QUESTS[i].giver]) QUESTS.splice(i,1);
 for(const id in WALKERS){ const n=NPCS.find(m=>m.id===id); n.walker=true; n.chat=WALKERS[id]; n.ci=0; }
@@ -653,7 +664,7 @@ function genWorld(){
     const px=x+(fbm(x*.05,y*.05,5)-.44)*18, py=y+(fbm(x*.05,y*.05,6)-.44)*18;
     let best=1e9,br=R.MEADOW;
     for(const s of seeds){ const dd=(px-s[1])**2+(py-s[2])**2; if(dd<best){best=dd;br=s[0];} }
-    if(Math.hypot(x-96,y-100)<15) br=R.VILLAGE;
+    if(Math.hypot(x-96,y-100)<15||mkE(x,y,1.5)<1) br=R.VILLAGE;
     if(Math.hypot(x-74,y-114)<8) br=R.KEEP;
     reg[i]=br; ground[i]=REGIONS[br].ground;
   }
@@ -686,8 +697,12 @@ function genWorld(){
   for(let y=vy-16;y<=vy+16;y++)for(let x=vx-16;x<=vx+16;x++){
     const d=Math.hypot(x-vx,y-vy), i=I(x,y);
     if(d<4.6){ ground[i]=G.STONE; obj[i]=O.NONE; }
-    if(d>=12.5&&d<13.5&&reg[i]===R.VILLAGE){ obj[i]=O.FENCE; ground[i]=G.GRASS; }
+    if(d>=12.5&&d<13.5&&reg[i]===R.VILLAGE&&!inMarket(x,y)){ obj[i]=O.FENCE; ground[i]=G.GRASS; }
   }
+  // Market Street fence: every tile just outside the street's block
+  for(let y=MARKET.cy-12;y<=MARKET.cy+12;y++)for(let x=MARKET.cx-17;x<=MARKET.cx+17;x++){ const i=I(x,y);
+    if(reg[i]!==R.VILLAGE||inMarket(x,y)||Math.hypot(x-vx,y-vy)<12.5) continue;
+    if([[1,0],[-1,0],[0,1],[0,-1]].some(([ox,oy])=>inMarket(x+ox,y+oy))){ obj[i]=O.FENCE; ground[i]=G.GRASS; } }
   // keep ruins
   const [kx,ky]=LOC.keep;
   for(let y=ky-8;y<=ky+8;y++)for(let x=kx-8;x<=kx+8;x++){
@@ -717,7 +732,7 @@ function genWorld(){
   main(LOC.gateW,LOC.woodsHub); main(LOC.woodsHub,LOC.arenaWoods);
   carveLine(LOC.woodsHub,[30,95],0,4,false); carveLine([30,95],[LOC.oak[0]+1,LOC.oak[1]+3],0,2,false);
   carveLine(LOC.woodsHub,[30,66],0,5,false);
-  main(LOC.gateE,[122,104]); main([122,104],LOC.shoreHub); main(LOC.shoreHub,LOC.arenaShore);
+  main(LOC.gateE,[139,103],2); main([139,103],LOC.shoreHub,3); main(LOC.shoreHub,LOC.arenaShore);
   carveLine(LOC.shoreHub,[160,104],0,4,false); carveLine([160,104],[LOC.lighthouse[0],LOC.lighthouse[1]+3],0,3,false);
   main(LOC.gateN,LOC.crossroads); main(LOC.crossroads,[78,52]); main([78,52],LOC.peaksHub); main(LOC.peaksHub,LOC.arenaPeaks);
   carveLine(LOC.peaksHub,[36,52],0,4,false); carveLine([36,52],[LOC.summit[0],LOC.summit[1]+3],0,2,false);
@@ -726,8 +741,7 @@ function genWorld(){
   main(LOC.crossroads,LOC.bridgeFoot,2);
   main(LOC.gateS,[84,116],3); main([84,116],LOC.keep,2);
   main([74,118],[73,158],0); carveLine(LOC.hauntedHub,[70,179],1,0,false); carveLine([70,179],[LOC.mansionDoor[0],LOC.mansionDoor[1]+3],1,0,false);
-  carveLine([116,104],[112,110],0,3,false); // meadow loop
-  carveLine(LOC.gateN,[116,72],0,5,false); carveLine([116,72],[120,84],0,4,false); carveLine([120,84],[122,100],0,4,false);
+  carveLine(LOC.gateN,[116,72],0,5,false); carveLine([116,72],[120,84],0,4,false); carveLine([120,84],[120,99],0,0,false);
   // houses (after paths so doors stay clear)
   const H=[
     {x:84,y:90,w:5,h:4,roof:'#c0503a',wall:'#e8d2a6',name:'Bakery'},
@@ -737,6 +751,14 @@ function genWorld(){
   ];
   H.forEach((h,k)=>addStruct('house',h.x,h.y,h.w,h.h,{roof:h.roof,wall:h.wall,shop:h.shop,solidObj:O.HOUSE,room:k+1}));
   addStruct('shrine',95,99,3,3);
+  // Market Street: cobbled road, the Armory and the Inn, stalls, a fountain, a clock tower and street lamps
+  for(let x=MARKET.cx-14;x<=MARKET.cx+14;x++)for(let y=99;y<=101;y++){ const i=I(x,y); if(reg[i]===R.VILLAGE&&obj[i]!==O.HOUSE){ ground[i]=G.STONE; obj[i]=O.NONE; } }
+  addStruct('house',111,93,6,4,{roof:'#5a5a6e',wall:'#d8c8b0',armory:true,solidObj:O.HOUSE,room:7});
+  addStruct('house',124,93,6,4,{roof:'#2a8a7a',wall:'#f2e2c0',inn:true,solidObj:O.HOUSE,room:8});
+  addStruct('stall',108,104,3,1,{awn:'#e04848',goods:'fruit'}); addStruct('stall',113,104,3,1,{awn:'#3a8ad8',goods:'toys'});
+  addStruct('fountain',119,104,3,2); addStruct('clocktower',126,103,3,3);
+  for(const [x,y] of [[108,98],[118,98],[122,98],[130,98],[112,102],[124,102],[131,102]]) addStruct('lamp',x,y,1,1);
+  for(const [x,y] of [[114,97],[114,98],[127,97],[127,98]]) carveTile(x,y,false);
   for(let y=YARD.y0;y<=YARD.y1;y++)for(let x=YARD.x0;x<=YARD.x1;x++){ const i=I(x,y); if(obj[i]===O.HOUSE) continue; ground[i]=G.SAND; obj[i]=O.NONE; }
   for(const [x,y] of YARD.dummies) clearSpot(x,y,1,R.VILLAGE);
   for(let x=95;x<=97;x++) carveTile(x,102,false);
@@ -771,7 +793,8 @@ function genWorld(){
   addSign(50,43,"Balloon rides to Cloudtop Isle! Ask Captain Puffy.");
   addSign(70,157,SEASON==="summer"?"Welcome to the Holiday Isles! Every season lives here in summer.":({fall:"Gloomwood Hollow. Visitors welcome. Ghosts also welcome.",winter:"Elvish Island. Wipe your paws, the elves just swept!",spring:"Easter Bunny Island. Please do not eat the eggs."})[SEASON]);
   addSign(80,98,"WEST: Whispering Woods. Beware of hamsters!");
-  addSign(112,98,"EAST: Sunny Shore. Lighthouse up the coast.");
+  addSign(132,98,"EAST: Sunny Shore. Lighthouse up the coast.");
+  addSign(110,98,"MARKET STREET. Ironpaw's Armory (slingshots, boomerangs, bombs), the Sleepy Bone Inn and fresh fruit!");
   addSign(98,84,"NORTH: Crossroads. Frostpaw Peaks and the SKY BALLOON (NW), Ember Caverns (NE), Bone Bridge (N).");
   addSign(98,116,"SOUTH-WEST: Whisker Keep. Formerly the lair of Mr. Whiskers.");
   addSign(94,62,"CROSSROADS. North: Bone Bridge. WEST: Frostpaw Peaks and the balloon to Cloudtop Isle. East: Caverns.");
@@ -1022,6 +1045,14 @@ function houseSprite(s){
     // windows
     for(const wx of [ox+4,ox+W-14]){ if(Math.abs(wx-dx)<12) continue; rect(g,wx,wallTop+9,10,9,'#3a2414'); rect(g,wx+1,wallTop+10,8,7,'#9ad0f0'); rect(g,wx+1,wallTop+10,8,2,'#d0ecff'); rect(g,wx+4,wallTop+10,1,7,'#3a2414'); rect(g,wx+1,wallTop+13,8,1,'#3a2414'); }
     if(s.shop){ rect(g,dx-6,wallTop-1,22,9,'#3a2414'); rect(g,dx-5,wallTop,20,7,'#f2d27a'); rect(g,dx-1,wallTop+2,12,3,'#fff6dc'); rect(g,dx-2,wallTop+1,2,2,'#fff6dc'); rect(g,dx-2,wallTop+4,2,2,'#fff6dc'); rect(g,dx+10,wallTop+1,2,2,'#fff6dc'); rect(g,dx+10,wallTop+4,2,2,'#fff6dc'); }
+    if(s.armory){ // shield and slingshot over the Armory door
+      rect(g,dx-8,wallTop-2,26,11,'#3a2414'); rect(g,dx-7,wallTop-1,24,9,'#e8d8b0');
+      rect(g,dx-5,wallTop,8,5,'#9aa0ac'); rect(g,dx-4,wallTop+5,6,1,'#9aa0ac'); rect(g,dx-3,wallTop+6,4,1,'#9aa0ac'); rect(g,dx-2,wallTop+1,2,5,'#d83030'); rect(g,dx-4,wallTop+2,6,1,'#d83030');
+      rect(g,dx+10,wallTop+3,2,5,'#6a4426'); rect(g,dx+8,wallTop,2,4,'#6a4426'); rect(g,dx+12,wallTop,2,4,'#6a4426'); rect(g,dx+9,wallTop+1,4,1,'#3a2414'); }
+    if(s.inn){ // moon and Zzz over the Inn door
+      rect(g,dx-8,wallTop-2,26,11,'#3a2414'); rect(g,dx-7,wallTop-1,24,9,'#2a3a6a');
+      rect(g,dx-4,wallTop,5,7,'#f8e070'); rect(g,dx-2,wallTop,4,5,'#2a3a6a');
+      for(const [zx,zy] of [[dx+4,wallTop+3],[dx+10,wallTop]]){ rect(g,zx,zy,4,1,'#fff6dc'); rect(g,zx+2,zy+1,1,1,'#fff6dc'); rect(g,zx+1,zy+2,1,1,'#fff6dc'); rect(g,zx,zy+3,4,1,'#fff6dc'); } }
   });
   structCache.set(key,c); return c;
 }
@@ -1053,8 +1084,53 @@ function drawStruct(s,cx,cy){
       rect(ctx,x,y-18,48,6,'#d8a840'); for(let k=0;k<5;k++) rect(ctx,x+2+k*10,y-24,4,6,'#f8d040');
       rect(ctx,x+16,y+6,16,4,'#f8d040'); break; }
     case 'labmansion': drawLabMansion(s,x,y); break;
+    case 'stall': case 'fountain': case 'clocktower': case 'lamp': drawMarket(s,x,y); break;
     case 'furn': case 'mansion': case 'cave': case 'balloon': case 'rainshrine': case 'ship': drawStruct2(s,x,y); break;
     case 'ruin': rect(ctx,x+4,y-10,40,24,'#6e6c7c'); rect(ctx,x+4,y-10,40,3,'#8e8c9c'); rect(ctx,x+10,y-4,28,16,'#4a2a6a'); rect(ctx,x+30,y-14,10,6,'#6e6c7c'); rect(ctx,x+12,y-2,10,3,'#8a8a98'); break;
+  }
+}
+function drawMarket(s,x,y){
+  const W=s.w*16;
+  switch(s.k){
+    case 'lamp': { const lit=darkness()>.05;
+      ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(x+4,y+13,9,3);
+      rect(ctx,x+5,y+12,6,4,'#2a2a30'); rect(ctx,x+7,y-10,2,23,'#3a3a44'); rect(ctx,x+8,y-10,1,23,'#5a5a66');
+      rect(ctx,x+3,y-19,10,2,'#2a2a30'); rect(ctx,x+7,y-21,2,2,'#2a2a30'); rect(ctx,x+4,y-17,8,8,'#2a2a30');
+      rect(ctx,x+5,y-16,6,6,lit?'#fff4a0':'#f2c860'); rect(ctx,x+5,y-16,2,2,'#fffbe0'); rect(ctx,x+7,y-16,1,6,'#2a2a30'); break; }
+    case 'stall': {
+      ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(x+1,y+14,W-2,3);
+      rect(ctx,x+2,y-22,2,36,'#5a3418'); rect(ctx,x+W-4,y-22,2,36,'#5a3418');
+      rect(ctx,x,y+2,W,13,'#3a2414'); rect(ctx,x+1,y+3,W-2,11,'#a8703a'); rect(ctx,x+1,y+3,W-2,2,'#c8904a'); for(let k=x+8;k<x+W-4;k+=12) rect(ctx,k,y+6,1,7,'#7a4a24');
+      const goods=s.goods==='fruit'?['#e83838','#f09030','#f0d040','#e83838','#80c040','#f09030','#e83838','#f0d040']:['#4a90e0','#e04a8a','#f0c040','#60c060','#a060f0','#f08040','#4a90e0','#e04a8a'];
+      for(let k=0;k<8;k++){ const gx=x+4+k*5, gy=y-1-(k%2); rect(ctx,gx,gy,4,4,'#3a2414'); rect(ctx,gx,gy,4,3,goods[k]); rect(ctx,gx+1,gy,1,1,'#ffffff'); }
+      for(let k=0;k<W+4;k+=6) rect(ctx,x-2+k,y-28,Math.min(6,W+2-k),8,(k/6)%2?'#fff6dc':s.awn);
+      for(let k=0;k<W+4;k+=6){ rect(ctx,x-1+k,y-20,4,2,(k/6)%2?'#fff6dc':s.awn); rect(ctx,x+k,y-18,2,1,(k/6)%2?'#fff6dc':s.awn); }
+      rect(ctx,x-2,y-29,W+4,1,'#3a2414'); break; }
+    case 'fountain': { const cx=x+24, cy=y+18;
+      ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(cx,cy+3,24,12,0,0,7); ctx.fill();
+      ctx.fillStyle='#3a3a44'; ctx.beginPath(); ctx.ellipse(cx,cy,24,12,0,0,7); ctx.fill();
+      ctx.fillStyle='#a8a8b4'; ctx.beginPath(); ctx.ellipse(cx,cy-1,23,11,0,0,7); ctx.fill();
+      ctx.fillStyle='#4a90d0'; ctx.beginPath(); ctx.ellipse(cx,cy-1,19,8,0,0,7); ctx.fill();
+      ctx.fillStyle='#7ac0f0'; for(let k=0;k<3;k++){ const a=T*1.5+k*2.1; rect(ctx,cx+Math.cos(a)*12-2,cy-1+Math.sin(a)*4,4,1,'#9ad8ff'); }
+      rect(ctx,cx-3,cy-20,6,19,'#8a8a96'); rect(ctx,cx-2,cy-20,2,19,'#c8c8d4');
+      rect(ctx,cx-9,cy-23,18,4,'#8a8a96'); rect(ctx,cx-8,cy-23,16,1,'#c8c8d4');
+      for(let k=0;k<6;k++){ const ph=((T*1.6+k/6)%1), side=k%2?1:-1, dx=side*(3+ph*9), dy=-26+ph*ph*30-ph*10;
+        rect(ctx,cx+dx,cy+dy,2,2,'#bfe8ff'); }
+      rect(ctx,cx-1,cy-30,2,7,'#bfe8ff'); break; }
+    case 'clocktower': { const bx=x+6, top=y-46, base=y+48;
+      ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(bx-2,base-4,40,5);
+      rect(ctx,bx,top,36,base-top,'#3a2414'); rect(ctx,bx+1,top+1,34,base-top-2,'#d8c8a8');
+      for(let yy=top+6;yy<base-2;yy+=6){ rect(ctx,bx+1,yy,34,1,'#b8a888'); for(let xx=bx+((yy/6)%2?4:10);xx<bx+34;xx+=12) rect(ctx,xx,yy-5,1,5,'#b8a888'); }
+      rect(ctx,bx-2,base-10,40,10,'#3a2414'); rect(ctx,bx-1,base-9,38,8,'#8a8a96'); rect(ctx,bx-1,base-9,38,2,'#a8a8b4');
+      for(let r=0;r<22;r++){ const w=Math.round(r*1.9)+2; rect(ctx,bx+18-w/2,top-22+r,w,1,r%4===3?'#7a2424':r<3?'#c84a4a':'#a83a3a'); }
+      rect(ctx,bx+17,top-28,2,7,'#3a2414'); rect(ctx,bx+19,top-28,6,4,'#ffd84a');
+      const ccx=bx+18, ccy=top+16; ctx.fillStyle='#3a2414'; ctx.beginPath(); ctx.arc(ccx,ccy,11,0,7); ctx.fill(); ctx.fillStyle='#fff6dc'; ctx.beginPath(); ctx.arc(ccx,ccy,10,0,7); ctx.fill();
+      for(let k=0;k<12;k++){ const a=k*Math.PI/6; rect(ctx,ccx+Math.cos(a)*8-.5,ccy+Math.sin(a)*8-.5,1,1,'#3a2414'); }
+      const c=S?S.clock||0:0, hr=(c/CYCLE)*Math.PI*4-Math.PI/2, mn=T*.6-Math.PI/2;
+      ctx.strokeStyle='#3a2414'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(ccx,ccy); ctx.lineTo(ccx+Math.cos(hr)*5,ccy+Math.sin(hr)*5); ctx.stroke();
+      ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(ccx,ccy); ctx.lineTo(ccx+Math.cos(mn)*8,ccy+Math.sin(mn)*8); ctx.stroke(); rect(ctx,ccx-1,ccy-1,2,2,'#d83030');
+      rect(ctx,bx+12,top+36,12,16,'#3a2414'); rect(ctx,bx+13,top+37,10,14,'#2a3a6a'); rect(ctx,bx+17,top+37,1,14,'#3a2414'); rect(ctx,bx+13,top+43,10,1,'#3a2414'); rect(ctx,bx+14,top+38,3,3,'#5a7ab0');
+      rect(ctx,bx+13,top+58,10,8,'#3a2414'); rect(ctx,bx+14,top+59,8,6,'#e8c050'); break; }
   }
 }
 function drawShrine(x,y){
@@ -1136,6 +1212,8 @@ const SFX={
   die(){ tone(200,.6,'sawtooth',.2,-160); },
   boom(){ noise(.35,.3); tone(90,.3,'square',.25,-40); },
   shoot(){ tone(900,.05,'square',.06,-400); },
+  sling(){ tone(420,.07,'square',.1,700); noise(.04,.08); },
+  toss(){ tone(300,.12,'triangle',.14,260); noise(.06,.06); },
   dash(){ noise(.12,.12); tone(300,.1,'sine',.12,500); },
   zap(){ noise(.25,.25); tone(1400,.2,'sawtooth',.12,-1200); },
   warp(){ if(!AC) return; const t=AC.currentTime; [784,659,523,392].forEach((f,k)=>tone(f,.08,'triangle',.15,0,t+k*.05)); },
@@ -1174,7 +1252,7 @@ setInterval(()=>{ if(!AC||!curTrack||!musicOn) return; const tr=TRACKS[curTrack]
 // =====================================================================
 const keys={}, pressed={}, touchHeld={}, touchPressed={}; const joy={x:0,y:0,on:false};
 const BIND={up:['arrowup','w'],down:['arrowdown','s'],left:['arrowleft','a'],right:['arrowright','d'],bite:['j',' ','z'],bark:['k','x'],
-  talk:['e','enter'],treat:['h'],dash:['l','c'],travel:['t'],log:['q','tab'],map:['m'],pause:['escape','p'],run:['shift'],mute:['n']};
+  talk:['e','enter'],treat:['h'],dash:['l','c'],item:['f'],swap:['g'],travel:['t'],log:['q','tab'],map:['m'],pause:['escape','p'],run:['shift'],mute:['n']};
 addEventListener('keydown',e=>{ if(codeOpen){ if(e.key==='Escape') closeSaveCode(); return; } const k=e.key.toLowerCase(); if(!keys[k]) pressed[k]=true; keys[k]=true; initAudio();
   if([' ','arrowup','arrowdown','arrowleft','arrowright','tab'].includes(k)) e.preventDefault(); });
 addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
@@ -1238,7 +1316,7 @@ let enemies=[], projs=[], pickups=[], parts=[], floaters=[], toasts=[];
 let banner=null, curRegion=-1, spawnT=0, saveT=0, bossActive=null, whiskersFlee=null, coachRun=null, elderRun=null;
 const SAVE_KEY='goodboyrex-save-v1';
 function newState(){
-  return {main:0,intro:false,hp:6,maxHp:6,lvl:1,xp:0,bones:10,treats:2,collar:0,barkLv:0,vit:0,q:{},chests:{},chestsEver:{},visited:{},kills:0,tut:0,tutRewarded:false,clock:0,pet:null,pets:{},outfit:'classic',outfits:{classic:1},flags:{},dash:false,diff:1,
+  return {main:0,intro:false,hp:6,maxHp:6,lvl:1,xp:0,bones:10,treats:2,collar:0,barkLv:0,vit:0,q:{},chests:{},chestsEver:{},visited:{},kills:0,tut:0,tutRewarded:false,clock:0,pet:null,pets:{},outfit:'classic',outfits:{classic:1},flags:{marketNews:1},dash:false,diff:1,gear:{sling:0,boom:0,bombs:0,helmet:0},wsel:null,
     x:LOC.keep[0]*16+8,y:(LOC.keep[1]+3)*16+8,track:'main',seen:'',bossDone:{},named:{}};
 }
 let memSave=null;
@@ -1257,6 +1335,57 @@ const barkDmg=()=>Math.max(1,Math.ceil(biteDmg()*.7));
 const barkCdMax=()=>1.4-S.barkLv*.35;
 const xpNeed=()=>12+S.lvl*10;
 
+// ---------- Ironpaw's gear: slingshot, boomerang, bone bombs (use with F, switch with G) ----------
+const ITEMS={sling:{name:'Slingshot',short:'SLING'},boom:{name:'Boomerang',short:'BOOM'},bomb:{name:'Bone Bombs',short:'BOMB'}};
+const MAX_BOMBS=20;
+function ownsItem(k){ const g=S.gear; return k==='sling'?g.sling>0:k==='boom'?g.boom>0:k==='bomb'?g.bombs>0:false; }
+function ownedItems(){ return S?Object.keys(ITEMS).filter(ownsItem):[]; }
+const slingDmg=()=>Math.max(1,Math.round(biteDmg()*.6))+(S.gear.sling>=2?1:0);
+const bombDmg=()=>biteDmg()*2+1;
+function equip(k){ S.wsel=k; syncItemButtons(); }
+function swapItem(){ const own=ownedItems(); if(!own.length){ toast("No gear yet! Ironpaw's Armory on Market Street sells some."); return; }
+  const i=own.indexOf(S.wsel); S.wsel=own[(i+1)%own.length]; SFX.talk(); toast(ITEMS[S.wsel].name+(S.wsel==='bomb'?' x'+S.gear.bombs:'')); syncItemButtons(); }
+// gentle aim assist: lock onto the nearest hamster roughly in front of Rex
+function aimAt(maxD){ const base=Math.atan2(DY[P.dir],DX[P.dir]); let best=null, bd=maxD;
+  for(const e of enemies){ if(e.dead||(e.alpha!=null&&e.alpha<.45)) continue; const dx=e.x-P.x, dy=(e.y-(e.boss?10:5))-(P.y-6), d=Math.hypot(dx,dy); if(d>bd) continue;
+    let da=Math.abs(Math.atan2(dy,dx)-base); if(da>Math.PI) da=2*Math.PI-da; if(da<.5){ bd=d; best=Math.atan2(dy,dx); } }
+  return best==null?base:best; }
+function useItem(){
+  if(!S.wsel||!ownsItem(S.wsel)){ const own=ownedItems();
+    if(!own.length){ if(!P.itemHint||T-P.itemHint>4){ P.itemHint=T; toast("No gear yet! Ironpaw's Armory on Market Street sells slingshots and more."); } return; }
+    S.wsel=own[0]; syncItemButtons(); }
+  if((P.itemCd||0)>0) return;
+  const k=S.wsel;
+  if(k==='sling'){ const a=aimAt(200), sp=270; P.itemCd=S.gear.sling>=2?.34:.48; SFX.sling();
+    projs.push({pebble:true,x:P.x+Math.cos(a)*8,y:P.y-6+Math.sin(a)*6,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.75,dmg:slingDmg()}); }
+  else if(k==='boom'){ if(projs.some(p=>p.boomer)) return; const a=aimAt(120); P.itemCd=.3; SFX.toss();
+    projs.push({boomer:true,x:P.x+Math.cos(a)*8,y:P.y-8,vx:Math.cos(a)*220,vy:Math.sin(a)*220,life:4,t:0,out:true,hits:new Set(),dmg:biteDmg()}); }
+  else if(k==='bomb'){ P.itemCd=.6; S.gear.bombs--; SFX.toss();
+    let dist=46; for(let st=8;st<=46;st+=4){ if(solidAt(P.x+DX[P.dir]*st,P.y+DY[P.dir]*st)){ dist=Math.max(0,st-8); break; } }
+    const tx=P.x+DX[P.dir]*dist, ty=P.y-4+DY[P.dir]*dist;
+    projs.push({bomb:true,x:P.x,y:P.y-6,sx:P.x,sy:P.y-6,tx,ty,vx:0,vy:0,t:0,z:0,life:9,fuse:1.1});
+    if(S.gear.bombs<=0){ toast('Out of Bone Bombs! Ironpaw sells more.','#ff9a9a'); const own=ownedItems(); S.wsel=own[0]||null; }
+    syncItemButtons(); }
+}
+function explodeBomb(p){ SFX.boom(); shake=.25; const BR=36;
+  for(let i=0;i<22;i++){ const a=Math.random()*7, sp=40+Math.random()*120; parts.push({x:p.x,y:p.y-4,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.35+Math.random()*.3,c:['#fff6dc','#ffd84a','#ff8a3a','#8a8a96'][i%4],s:2}); }
+  projs.push({blast:true,x:p.x,y:p.y-4,vx:0,vy:0,life:.3});
+  for(const e of enemies){ if(e.dead) continue; if(Math.hypot(e.x-p.x,(e.y-(e.boss?10:5))-(p.y-4))<BR+(e.boss?14:0)) damageEnemy(e,bombDmg(),p.x,p.y,300,'bomb'); }
+  for(const q of projs){ if(q.enemy&&Math.hypot(q.x-p.x,q.y-p.y)<BR) q.life=0; }
+}
+// touch screens get ITEM and SWAP buttons once Rex owns some gear
+let itemBtnKey='';
+function syncItemButtons(){ const bi=document.getElementById('b-item'), bs=document.getElementById('b-swap'); if(!bi||!bs) return;
+  const own=ownedItems(), k=own.length?(S.wsel&&ownsItem(S.wsel)?S.wsel:own[0]):'', key=own.join()+'|'+k; if(key===itemBtnKey) return; itemBtnKey=key;
+  bi.hidden=!own.length; bs.hidden=own.length<2; if(k){ bi.textContent=ITEMS[k].short; bi.setAttribute('aria-label','Use '+ITEMS[k].name); } }
+function drawItemIcon(k,x,y){
+  rect(ctx,x-1,y-1,12,12,'#1a1010'); rect(ctx,x,y,10,10,'#3a2a48');
+  if(k==='sling'){ rect(ctx,x+4,y+5,2,4,'#8a5a30'); rect(ctx,x+2,y+1,2,5,'#8a5a30'); rect(ctx,x+6,y+1,2,5,'#8a5a30'); rect(ctx,x+3,y+2,4,1,'#e8dcc0'); }
+  else if(k==='boom'){ rect(ctx,x+2,y+2,6,2,'#e0a050'); rect(ctx,x+2,y+2,2,6,'#e0a050'); rect(ctx,x+3,y+3,1,1,'#fff0c0'); }
+  else if(k==='bomb'){ rect(ctx,x+2,y+3,6,6,'#1a1010'); rect(ctx,x+3,y+4,4,4,'#4a4a5a'); rect(ctx,x+3,y+4,1,1,'#a0a0b0'); rect(ctx,x+6,y+1,1,2,'#c8a070'); rect(ctx,x+7,y,1,1,'#ffd84a'); }
+  const cd=Math.max(0,P.itemCd||0)/(k==='sling'?(S.gear.sling>=2?.34:.48):.6); if(cd>0) rect(ctx,x,y,10,Math.round(10*Math.min(1,cd)),'rgba(0,0,0,.55)');
+}
+
 function startGame(fresh,diff){
   if(fresh||!loadSave()){ S=newState(); if(diff!=null) S.diff=diff; seenFromStr(''); } else { S=Object.assign(newState(),loadSave()); seenFromStr(S.seen); }
   normalizeState();
@@ -1268,6 +1397,8 @@ function startGame(fresh,diff){
   curRegion=-1; mode='play'; buildMinimap();
   if(!S.intro){ startIntro(); }
   else toast('Welcome back, Rex!');
+  if(S.intro&&!S.flags.marketNews){ S.flags.marketNews=1; toast("NEW: Barkton grew! Visit Market Street and Ironpaw's Armory on the east side of the village.",'#9ad8ff'); }
+  itemBtnKey=''; syncItemButtons();
   if(tutActive()) tutReset();
 }
 
@@ -1295,6 +1426,25 @@ function openShop(){
     {label:'Leave',price:0,leave:true},
   ].filter(Boolean);
   menu={title:"Bonnie's Bone Shop",items:items(),sel:0,refresh:items}; mode='menu';
+}
+function openArmory(){
+  const g=S.gear;
+  const items=()=>[
+    !g.sling?{label:'Slingshot (long range)',price:60,desc:'Shoots pebbles at hamsters far away. Use it with '+(touchMode?'the ITEM button.':'F.'),act(){ g.sling=1; equip('sling'); gearHint(); }}:null,
+    g.sling===1?{label:'Steel Pebbles (+1 sling)',price:120,desc:'Harder pebbles: +1 slingshot damage and faster shots.',act(){ g.sling=2; }}:null,
+    !g.boom?{label:'Boomerang (comes back!)',price:150,desc:'Hits hamsters on the way out AND on the way back. Blocks seeds too!',act(){ g.boom=1; equip('boom'); gearHint(); }}:null,
+    g.bombs<MAX_BOMBS?{label:'Bone Bombs x5 (have '+g.bombs+')',price:40,desc:'Toss one and stand back: the boom hits every hamster nearby.',act(){ const first=!ownedItems().length; g.bombs=Math.min(MAX_BOMBS,g.bombs+5); if(!S.wsel||!ownsItem(S.wsel)) equip('bomb'); if(first) gearHint(); syncItemButtons(); }}:null,
+    !g.helmet?{label:'Iron Helmet (tougher Rex)',price:120,desc:'Big hits hurt less: every hit of 2 or more does 1 less damage.',act(){ g.helmet=1; }}:null,
+    {label:'Leave',price:0,leave:true,desc:'Need more bones? Hamsters drop them, and chests are full of them.'},
+  ].filter(Boolean);
+  menu={title:"Ironpaw's Armory",items:items(),sel:0,refresh:items,bye:['Ironpaw','Aim true, pup!']}; mode='menu';
+}
+function gearHint(){ toast(touchMode?'Tap ITEM to use your gear. SWAP switches gear.':'Press F to use your gear. G switches gear.','#9ad8ff'); }
+function openInn(){
+  menu={title:'The Sleepy Bone Inn',choice:true,sel:0,items:[
+    {label:'Take a cozy nap (free)',pick(){ S.hp=S.maxHp; SFX.heal(); save(); hasSave=true;
+      say([['Innkeeper Tilly','Sweet dreams, Rex...'],['','Rex curls up by the fire for a cozy nap. All hearts restored, and your game is saved!']]); }},
+    {label:'Not now',pick(){ say([['Innkeeper Tilly',"Come back whenever you're sleepy, dear."]]); }}]}; mode='menu';
 }
 function updateMenu(){
   if(hit('up')) { menu.sel=(menu.sel+menu.items.length-1)%menu.items.length; SFX.talk(); }
@@ -1425,6 +1575,8 @@ function talkTo(n){
   // main story
   if(n.id==='elder'&&storyElder()) return;
   if(n.shop){ say([[n.name,"Welcome to Bonnie's Bone Shop! Take a look."]],()=>{ talkQuests(n,true)||openShop(); }); return; }
+  if(n.armory){ if(talkQuests(n,true)) return; say([[n.name,ownedItems().length?"Back for more gear, Rex? Take a look.":"Welcome to Ironpaw's Armory! Every hero needs something for the hamsters you can't reach with a bite."]],openArmory); return; }
+  if(n.inn){ say([[n.name,"Welcome to the Sleepy Bone Inn, Rex! You look tired."]],openInn); return; }
   if(n.tailor){ if(talkQuests(n,true)) return; say([[n.name,"Welcome to my little workshop! Care for a new look?"]],openTailor); return; }
   if(n.petkeeper){ if(talkQuests(n,true)) return; say([[n.name,"Hello, Rex! Want to pick a friend to come adventuring with you?"]],openPetMenu); return; }
   if(n.ride){ if(QUESTS.some(q=>q.giver===n.id&&S.q[q.id]&&S.q[q.id].st==='ready')){ talkQuests(n,true); return; } say([[n.name,n.ride==='sky'?"Fancy a balloon ride up to Cloudtop Isle? It's free for heroes!":"Ready to float back down to Frostpaw Peaks?"]],()=>openRide(n)); return; }
@@ -1815,7 +1967,7 @@ function moveP(dx,dy){
   if(dy){ const ny=P.y+dy; if(freeP(P.x,ny)) P.y=ny; else { for(const o of [3,-3,6,-6]){ if(freeP(P.x+o,ny)){ P.x+=Math.sign(o)*Math.min(Math.abs(dy),1); break; } } } }
 }
 function updatePlayer(dt){
-  P.inv-=dt; P.atkCd-=dt; P.barkCd-=dt; P.atkT-=dt; P.dashCd=(P.dashCd||0)-dt;
+  P.inv-=dt; P.atkCd-=dt; P.barkCd-=dt; P.atkT-=dt; P.dashCd=(P.dashCd||0)-dt; P.itemCd=(P.itemCd||0)-dt;
   if(P.kbt>0){ P.kbt-=dt; moveP(P.kbx*dt,0); moveP(0,P.kby*dt); }
   let mx=0,my=0;
   if(joy.on&&Math.hypot(joy.x,joy.y)>.2){ mx=joy.x; my=joy.y; }
@@ -1843,12 +1995,14 @@ function updatePlayer(dt){
   }
   if(hit('bark')&&P.barkCd<=0){ P.barkCd=barkCdMax(); SFX.bark(); shake=.08;
     projs.push({x:P.x+DX[P.dir]*8,y:P.y-6+DY[P.dir]*6,vx:DX[P.dir]*170,vy:DY[P.dir]*170,life:.55,bark:true,dir:P.dir,hits:new Set(),r:5}); }
+  if(hit('item')) useItem();
+  if(hit('swap')) swapItem();
   if(hit('treat')) eatTreat();
   if(hit('talk')) interact();
   // region / visit
   const tx=(P.x/16)|0, ty=(P.y/16)|0;
-  const r=regionAt(tx,ty), rm=inb(tx,ty)?room[I(tx,ty)]:0, part=r===R.HAUNTED?themeAt(tx):'';
-  if((r!==curRegion||rm!==curRoom||part!==curPart)&&r!==R.SEA){ curRegion=r; curRoom=rm; curPart=part; const nm=rm?ROOMS[rm].name:part?THEMES[part].name:REGIONS[r].name; if(nm){ banner={t:nm,life:2.6}; } if(!bossActive) playTrack(currentMusic());
+  const r=regionAt(tx,ty), rm=inb(tx,ty)?room[I(tx,ty)]:0, part=r===R.HAUNTED?themeAt(tx):r===R.VILLAGE&&inMarket(tx,ty)&&Math.hypot(tx-96,ty-100)>=13?'market':'';
+  if((r!==curRegion||rm!==curRoom||part!==curPart)&&r!==R.SEA){ curRegion=r; curRoom=rm; curPart=part; const nm=rm?ROOMS[rm].name:part==='market'?'Barkton Market Street':part?THEMES[part].name:REGIONS[r].name; if(nm){ banner={t:nm,life:2.6}; } if(!bossActive) playTrack(currentMusic());
     if(!S.visited[r]){ S.visited[r]=1; if(r===R.PEAKS) toast('See the big balloon? Captain Puffy flies to Cloudtop Isle!','#9ad8ff'); if(WP_BY_REGION[r]&&r!==R.KEEP) toast('Fast travel unlocked: '+WP_BY_REGION[r].name+(touchMode?'! Find it in the menu.':'! Press T to travel.'),'#8ad8ff'); checkQuestTick(); } }
   checkWarp();
   reveal();
@@ -1889,6 +2043,7 @@ function openChest(k){
   checkQuestTick(); save();
 }
 function hurtPlayer(dmg,fx,fy){
+  if(S.gear&&S.gear.helmet&&dmg>1) dmg--; // Iron Helmet
   dmg=S.diff===0?Math.max(1,Math.floor(dmg*.5)):S.diff===2?Math.ceil(dmg*1.5):dmg;
   S.hp-=dmg; P.inv=1; SFX.hurt(); shake=.18;
   const d=Math.hypot(P.x-fx,P.y-fy)||1; P.kbt=.16; P.kbx=(P.x-fx)/d*190; P.kby=(P.y-fy)/d*190;
@@ -1921,6 +2076,20 @@ function updateProj(dt){
     } else if(p.feather){
       for(const e of enemies){ if(e.dead||e.dummy) continue; if(Math.hypot(e.x-p.x,(e.y-(e.boss?10:5))-p.y)<(e.boss?16:8)){ damageEnemy(e,p.dmg,p.x-p.vx*.05,p.y-p.vy*.05,60,'pet'); p.life=0; break; } }
       if(solidAt(p.x,p.y+6)) p.life=0;
+    } else if(p.pebble){
+      for(const e of enemies){ if(e.dead) continue; if(Math.abs(e.x-p.x)<(e.boss?16:e.dummy?10:8)&&Math.abs((e.y-(e.boss?10:e.dummy?10:5))-p.y)<(e.boss?18:10)){ damageEnemy(e,p.dmg,p.x-p.vx*.1,p.y-p.vy*.1,110,'sling'); p.life=0; break; } }
+      if(p.life>0&&solidAt(p.x,p.y+6)){ p.life=0; for(let i=0;i<3;i++) parts.push({x:p.x,y:p.y,vx:(Math.random()-.5)*50,vy:-Math.random()*40,life:.25,c:'#b0b0bc',s:1}); }
+    } else if(p.boomer){
+      p.t+=dt;
+      if(p.out&&(p.t>.42||solidAt(p.x,p.y+6))){ p.out=false; p.hits=new Set(); }
+      if(!p.out){ const dx=P.x-p.x, dy=(P.y-8)-p.y, d=Math.hypot(dx,dy)||1, sp=Math.min(270,120+p.t*220); p.vx=dx/d*sp; p.vy=dy/d*sp; if(d<12) p.life=0; }
+      for(const e of enemies){ if(e.dead||p.hits.has(e)) continue; if(Math.hypot(e.x-p.x,(e.y-(e.boss?10:5))-p.y)<(e.boss?20:11)){ p.hits.add(e); damageEnemy(e,p.dmg,p.x-p.vx*.1,p.y-p.vy*.1,150,'boom'); } }
+      for(const q of projs){ if(q.enemy&&Math.hypot(q.x-p.x,q.y-p.y)<8) q.life=0; }
+    } else if(p.bomb){
+      p.t+=dt; const ft=.38;
+      if(p.t<ft){ const k=p.t/ft; p.x=p.sx+(p.tx-p.sx)*k; p.y=p.sy+(p.ty-p.sy)*k; p.z=Math.sin(Math.PI*k)*16; } else p.z=0;
+      if(p.t>=p.fuse){ p.life=0; explodeBomb(p); }
+      else if(Math.random()<.5) parts.push({x:p.x+2,y:p.y-9-p.z,vx:(Math.random()-.5)*20,vy:-20-Math.random()*20,life:.25,c:Math.random()<.5?'#ffd84a':'#ff8a3a',s:1});
     } else if(p.enemy){
       if(solidAt(p.x,p.y+6)) p.life=0;
       if(P.inv<=0&&Math.abs(p.x-P.x)<6&&Math.abs(p.y-(P.y-6))<7){ p.life=0; hurtPlayer(p.dmg,p.x-p.vx,p.y-p.vy); }
@@ -2098,6 +2267,14 @@ function renderWorld(){
   for(const p of projs){ const x=p.x-camX, y=p.y-camY;
     if(p.bark){ ctx.strokeStyle='rgba(255,246,200,'+Math.min(1,p.life*2.5)+')'; ctx.lineWidth=2; ctx.beginPath(); const a=[Math.PI/2,-Math.PI/2,Math.PI,0][p.dir]; ctx.arc(x-DX[p.dir]*p.r*.6,y-DY[p.dir]*p.r*.6,p.r,a-1,a+1); ctx.stroke(); ctx.beginPath(); ctx.arc(x-DX[p.dir]*p.r*1.2,y-DY[p.dir]*p.r*1.2,p.r*.6,a-1,a+1); ctx.stroke(); }
     else if(p.feather){ rect(ctx,x-3,y,5,1,'#ffffff'); rect(ctx,x+1,y-1,2,1,'#e8d8b0'); }
+    else if(p.pebble){ rect(ctx,x-2,y-2,4,4,'#3a3a44'); rect(ctx,x-1,y-1,3,3,'#9a9aa8'); rect(ctx,x-1,y-1,1,1,'#e8e8f0'); }
+    else if(p.boomer){ ctx.save(); ctx.translate(Math.round(x),Math.round(y)); ctx.rotate(T*22); ctx.fillStyle='#3a2414'; ctx.fillRect(-6,-2,9,4); ctx.fillRect(-2,-6,4,9); ctx.fillStyle='#e0a050'; ctx.fillRect(-5,-1,7,2); ctx.fillRect(-1,-5,2,7); ctx.restore(); }
+    else if(p.bomb){ const z=p.z||0, fl=p.t>p.fuse-.45&&((T*16)|0)%2, by=Math.round(y-z), bx=Math.round(x);
+      ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(bx-4,Math.round(y)+3,9,2);
+      ctx.fillStyle='#1a1010'; ctx.beginPath(); ctx.arc(bx+.5,by+.5,5.5,0,7); ctx.fill(); ctx.fillStyle=fl?'#e04040':'#3a3a4c'; ctx.beginPath(); ctx.arc(bx+.5,by+.5,4.5,0,7); ctx.fill();
+      rect(ctx,bx-3,by-3,2,2,'#9a9aaa'); rect(ctx,bx-1,by+1,4,1,'#f4ecd8'); rect(ctx,bx-2,by,1,1,'#f4ecd8'); rect(ctx,bx-2,by+2,1,1,'#f4ecd8'); rect(ctx,bx+3,by,1,1,'#f4ecd8'); rect(ctx,bx+3,by+2,1,1,'#f4ecd8');
+      rect(ctx,bx-1,by-7,3,2,'#1a1010'); rect(ctx,bx+1,by-9,1,3,'#c8a070'); rect(ctx,bx+1,by-10,1,1,((T*20)|0)%2?'#ffd84a':'#ff8a3a'); }
+    else if(p.blast){ const k=1-p.life/.3; ctx.strokeStyle='rgba(255,230,160,'+Math.max(0,1-k)+')'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(x,y,6+k*32,0,7); ctx.stroke(); }
     else if(p.bubble){ ctx.strokeStyle='#d8f4ff'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(x,y,3.5,0,7); ctx.stroke(); rect(ctx,x-1,y-2,1,1,'#fff'); }
     else if(p.bat&&MANSION_THEME()==='winter'){ rect(ctx,x-3,y,7,1,'#ffffff'); rect(ctx,x,y-3,1,7,'#ffffff'); rect(ctx,x-2,y-2,1,1,'#d8f0ff'); rect(ctx,x+2,y+2,1,1,'#d8f0ff'); rect(ctx,x+2,y-2,1,1,'#d8f0ff'); rect(ctx,x-2,y+2,1,1,'#d8f0ff'); }
     else if(p.bat&&MANSION_THEME()==='spring'){ const c=['#f04070','#ffd040','#60c060','#a060f0'][(Math.abs(p.vx*7)|0)%4]; rect(ctx,x-3,y-1,6,3,c); rect(ctx,x-2,y-2,4,1,c); rect(ctx,x-2,y-1,2,1,'#ffffff'); }
@@ -2261,6 +2438,10 @@ function renderHUD(){
   // treat icon
   rect(ctx,50,y,6,6,'#c87838'); rect(ctx,51,y+1,4,4,'#e8a858'); text(String(S.treats),59,y,'#fff6dc');
   y+=11; text('LV'+S.lvl,6,y,'#ffd84a'); rect(ctx,32,y+2,40,4,'#1a1010'); rect(ctx,33,y+3,Math.round(38*S.xp/xpNeed()),2,'#8ad0ff');
+  // gear from Ironpaw's Armory
+  syncItemButtons();
+  if(S.wsel&&ownsItem(S.wsel)){ y+=13; drawItemIcon(S.wsel,6,y-1); const many=ownedItems().length>1;
+    text(ITEMS[S.wsel].short+(S.wsel==='bomb'?' x'+S.gear.bombs:'')+(touchMode?'':' [F]'+(many?' G:swap':'')),20,y,'#9ad8ff'); }
   // compass + tracked quest (top right)
   const cx=VW-18, cy=17, chov=!touchMode&&mode==='play'&&Math.hypot(mouse.x-cx,mouse.y-cy)<14; ctx.fillStyle=chov?'#ffd84a':'#1a1010'; ctx.beginPath(); ctx.arc(cx,cy,13,0,7); ctx.fill(); ctx.fillStyle='#b8823a'; ctx.beginPath(); ctx.arc(cx,cy,12,0,7); ctx.fill(); ctx.fillStyle='#241a1a'; ctx.beginPath(); ctx.arc(cx,cy,10,0,7); ctx.fill();
   const tg=questTarget(S.track);
@@ -2301,10 +2482,12 @@ function renderDialog(){
   if(dlg.shown>=L[1].length&&((T*3)|0)%2) { rect(ctx,x+w-14,y+h-10,6,3,'#ffd84a'); rect(ctx,x+w-13,y+h-7,4,1,'#ffd84a'); }
 }
 function renderMenu(){
-  const w=Math.min(VW-16,300), h=menu.items.length*14+38, x=(VW-w)/2, y=(VH-h)/2;
+  const hasDesc=menu.items.some(it=>it.desc);
+  const w=Math.min(VW-16,300), h=menu.items.length*14+38+(hasDesc?26:0), x=(VW-w)/2, y=(VH-h)/2;
   panel(x,y,w,h); text(menu.title,VW/2,y+8,'#ffd84a',8,'center'); if(!menu.choice) text('Bones: '+S.bones,VW/2,y+20,'#fff6dc',8,'center');
   menu.items.forEach((it,k)=>{ const yy=y+34+k*14; const sel=k===menu.sel; if(sel) rect(ctx,x+5,yy-3,w-10,13,'#4a3a68');
     const lab=wrap(it.label,w-70)[0]; text((sel?'> ':'  ')+lab,x+8,yy,it.dis||(it.price&&S.bones<it.price)?'#8a7a9a':'#fff6dc'); if(it.price) text(String(it.price),x+w-10,yy,'#ffd84a',8,'right'); });
+  if(hasDesc){ const it=menu.items[menu.sel]; if(it&&it.desc) wrap(it.desc,w-20).slice(0,2).forEach((l,k)=>text(l,VW/2,y+h-26+k*10,'#9ad8ff',8,'center')); }
 }
 function renderLog(){
   const a=activeQuests(); const w=Math.min(VW-12,380), x=(VW-w)/2, y=8, h=VH-16;
@@ -2450,6 +2633,10 @@ function genZones(){
   // Dr. Nibbles' laboratory
   F('rug',250,176,10,8,{flat:true,c:'#2a4a3a'}); F('machine',252,172,5,1); F('labtable',246,172,3,1); F('labtable',260,172,3,1);
   F('labtable',246,180,2,1); F('labtable',262,180,2,1); F('wheel',246,184,2,1); F('wheel',262,184,2,1);
+  // Ironpaw's Armory
+  F('rug',260,136,7,3,{flat:true,c:'#8a3a3a'}); F('forge',258,134,2,1); F('anvil',261,135,1,1); F('rack',264,134,3,1); F('armor',268,134,1,1); F('barrel',258,139,1,1); F('barrel',268,139,1,1);
+  // the Sleepy Bone Inn
+  F('rug',260,149,7,3,{flat:true,c:'#2a8a7a'}); F('bed',258,148,2,1,{c:'#6a9ae0'}); F('bed',258,151,2,1,{c:'#e0a040'}); F('hearth',265,148,3,1); F('table',266,151,2,1); F('plant',268,153,1,1);
   // --- Coral Grotto ---
   for(let y=68;y<=126;y++)for(let x=214;x<=270;x++){ const i=I(x,y); reg[i]=R.GROTTO; ground[i]=G.GROTWALL; obj[i]=O.NONE; }
   for(let y=68;y<=126;y++)for(let x=214;x<=270;x++){ const i=I(x,y); const e=((x-242)/26)**2+((y-97)/27)**2;
@@ -2499,8 +2686,8 @@ function cloudEdges(tx,ty,x,y){
   if(land(tx+1,ty)) rect(ctx,x+13,y,3,16,'#eef4ff');
 }
 function grotFace(tx,ty,x,y){ if(ty+1<MH&&ground[I(tx,ty+1)]!==G.GROTWALL){ rect(ctx,x,y+10,16,6,'#24406a'); rect(ctx,x,y+10,16,1,'#4a6a9a'); } }
-const FLOORSTYLE={lab:['#5e6e66','#4e5e56','#6e7e76'],workshop:['#a86a3a','#8a5028','#c08048'],egghall:['#f0d8a0','#d8c088','#fff0c0'],bakery:['#c08a50','#a87440','#d8a468'],shop:['#b07a48','#94643a','#c89060'],post:['#a8885a','#8e7048','#c0a070'],shelter:['#c89870','#b08058','#dcb088'],mansion:['#4a3438','#3a272c','#5a4046']};
-const WALLSTYLE={lab:['#4a5a5a','#3e4e4e'],workshop:['#c83a3a','#b02a2a'],egghall:['#d8f0e0','#f8d8e8'],bakery:['#f0d8b0','#e6c898'],shop:['#c8e0f0','#b4d0e6'],post:['#d8e8c8','#c4d8b2'],shelter:['#f8d0d8','#ecbcc8'],mansion:['#3a2a4a','#4a3a5c']};
+const FLOORSTYLE={armory:['#8a8a94','#6e6e78','#a2a2ac'],inn:['#b8865a','#9c6e46','#d09c6c'],lab:['#5e6e66','#4e5e56','#6e7e76'],workshop:['#a86a3a','#8a5028','#c08048'],egghall:['#f0d8a0','#d8c088','#fff0c0'],bakery:['#c08a50','#a87440','#d8a468'],shop:['#b07a48','#94643a','#c89060'],post:['#a8885a','#8e7048','#c0a070'],shelter:['#c89870','#b08058','#dcb088'],mansion:['#4a3438','#3a272c','#5a4046']};
+const WALLSTYLE={armory:['#8a6a4a','#76583c'],inn:['#f0dcb4','#e2cc9e'],lab:['#4a5a5a','#3e4e4e'],workshop:['#c83a3a','#b02a2a'],egghall:['#d8f0e0','#f8d8e8'],bakery:['#f0d8b0','#e6c898'],shop:['#c8e0f0','#b4d0e6'],post:['#d8e8c8','#c4d8b2'],shelter:['#f8d0d8','#ecbcc8'],mansion:['#3a2a4a','#4a3a5c']};
 const floorCache={};
 function floorTile(style,v){ const k=style+v; if(!floorCache[k]){ const c=FLOORSTYLE[style]; floorCache[k]=mk(16,16,g=>{ rect(g,0,0,16,16,c[0]); for(let y=0;y<16;y+=4) rect(g,0,y,16,1,c[1]);
   const o=(v*5)%16; rect(g,o,0,1,4,c[1]); rect(g,(o+8)%16,4,1,4,c[1]); rect(g,(o+3)%16,8,1,4,c[1]); rect(g,(o+11)%16,12,1,4,c[1]); rect(g,(o+2)%16,1,3,1,c[2]); rect(g,(o+9)%16,9,3,1,c[2]); }); } return floorCache[k]; }
@@ -2539,6 +2726,19 @@ function drawFurn(st,x,y){
     case 'machine': { rect(ctx,x,y-26,W,H+26,'#1e2228'); rect(ctx,x+2,y-24,W-4,H+22,'#4a5260'); for(let k=0;k<4;k++) rect(ctx,x+6+k*18,y-20,10,6,((T*4+k)|0)%2?'#7af0a0':'#2a6a4a');
       rect(ctx,x+W/2-8,y-6,16,12,'#2a2e36'); rect(ctx,x+W/2-6,y-4,12,8,'#8ad8ff'); for(const ex of [x+4,x+W-8]){ rect(ctx,ex,y-34,4,10,'#8a8a96'); rect(ctx,ex-1,y-36,6,3,'#c8c8d0'); }
       if(((T*5)|0)%3===0){ ctx.strokeStyle='#c8f0ff'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x+6,y-36); for(let k=1;k<=6;k++) ctx.lineTo(x+6+k*(W-12)/6,y-38+(k%2?-4:3)); ctx.stroke(); } break; }
+    case 'forge': rect(ctx,x,y-16,W,H+16,o); rect(ctx,x+1,y-15,W-2,H+14,'#6a6a74'); for(let r=0;r<5;r++) rect(ctx,x+1,y-12+r*6,W-2,1,'#55555e');
+      rect(ctx,x+5,y-2,W-10,13,'#1a1010'); rect(ctx,x+7,y+3,W-14,8,((T*8)|0)%2?'#f8a030':'#e86020'); rect(ctx,x+9,y+1,W-18,3,'#ffd060'); rect(ctx,x+W/2-5,y-26,10,11,'#4a4a52'); rect(ctx,x+W/2-4,y-26,8,1,'#6a6a74'); break;
+    case 'anvil': rect(ctx,x+1,y+1,14,3,'#5a5a66'); rect(ctx,x+2,y+1,12,1,'#a0a0ac'); rect(ctx,x+3,y+4,10,2,'#3a3a44'); rect(ctx,x+5,y+6,6,5,'#3a3a44'); rect(ctx,x+3,y+11,10,3,'#2a2a30'); rect(ctx,x+12,y-3,2,4,'#8a5a30'); rect(ctx,x+10,y-4,6,2,'#6a6a74'); break;
+    case 'rack': rect(ctx,x,y-14,W,H+12,o); rect(ctx,x+1,y-13,W-2,H+10,'#9a6a3a'); for(const yy of [y-6,y+5]) rect(ctx,x+1,yy,W-2,2,'#5a3418');
+      for(let k=0;k<st.w;k++){ const fx=x+3+k*16;
+        rect(ctx,fx+3,y-9,2,4,'#6a4426'); rect(ctx,fx+1,y-13,2,4,'#6a4426'); rect(ctx,fx+5,y-13,2,4,'#6a4426'); rect(ctx,fx+2,y-12,4,1,'#c8b8a0');
+        rect(ctx,fx+8,y-12,6,2,'#d8903a'); rect(ctx,fx+8,y-12,2,6,'#d8903a');
+        rect(ctx,fx+2,y-3,5,5,'#1a1010'); rect(ctx,fx+3,y-2,3,3,'#3a3a48'); rect(ctx,fx+5,y-4,1,2,'#c8a070');
+        rect(ctx,fx+9,y-3,4,7,'#9aa0ac'); rect(ctx,fx+10,y+4,2,2,'#9aa0ac'); } break;
+    case 'armor': rect(ctx,x+7,y-2,2,15,'#5a3418'); rect(ctx,x+3,y+12,10,3,'#5a3418'); rect(ctx,x+3,y-9,10,9,'#8a909c'); rect(ctx,x+4,y-8,8,7,'#c0c6d0'); rect(ctx,x+4,y-16,8,7,'#8a909c'); rect(ctx,x+5,y-15,6,2,'#d8dde6'); rect(ctx,x+5,y-12,6,1,'#3a3a44'); break;
+    case 'barrel': rect(ctx,x+2,y-3,12,16,o); rect(ctx,x+3,y-2,10,14,'#a8703a'); rect(ctx,x+3,y+1,10,1,'#6a6a74'); rect(ctx,x+3,y+8,10,1,'#6a6a74'); rect(ctx,x+3,y-2,10,2,'#c8904a'); break;
+    case 'hearth': { rect(ctx,x,y-18,W,H+18,o); rect(ctx,x+1,y-17,W-2,H+16,'#a89a8a'); for(let r=0;r<6;r++) rect(ctx,x+1,y-14+r*5,W-2,1,'#8a7c6c'); rect(ctx,x-1,y-20,W+2,4,'#6a4426');
+      rect(ctx,x+8,y-5,W-16,14,'#1a1010'); const f=((T*7)|0)%3; rect(ctx,x+11,y+2-f,W-22,7+f,'#e86020'); rect(ctx,x+14,y+4-f,W-28,5+f,'#f8b030'); rect(ctx,x+12,y+9,W-24,2,'#5a3418'); break; }
     case 'wheel': { const cx=x+W/2, cy=y+2, a=T*3; ctx.strokeStyle='#8a8a96'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(cx,cy,11,0,7); ctx.stroke(); ctx.lineWidth=1;
       for(let k=0;k<6;k++){ ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(a+k)*11,cy+Math.sin(a+k)*11); ctx.stroke(); } rect(ctx,cx-6,y+12,12,3,'#5a5a66'); break; }
     case 'coffin': if(MANSION_THEME()==='winter'){ rect(ctx,x+4,y-18,8,6,'#1a1a1a'); rect(ctx,x+5,y-12,6,5,'#f0c8a0'); rect(ctx,x+6,y-10,1,1,'#111'); rect(ctx,x+9,y-10,1,1,'#111'); rect(ctx,x+4,y-7,8,10,'#d83040'); rect(ctx,x+4,y-3,8,1,'#ffd840'); rect(ctx,x+4,y+3,8,9,'#2a3a8a'); rect(ctx,x+7,y+3,1,9,'#1a1a3a'); break; }
@@ -2719,9 +2919,10 @@ function normalizeState(){
   if(!OUTFITS[S.outfit]) S.outfit='classic';
   for(const q of QUESTS){ if(q.rw.pet&&S.q[q.id]&&S.q[q.id].st==='done') S.pets[q.rw.pet]=1; if(q.rw.flag&&S.q[q.id]&&S.q[q.id].st==='done') S.flags[q.rw.flag]=1; }
   if(S.pet&&!S.pets[S.pet]) S.pet=null;
+  S.gear=Object.assign({sling:0,boom:0,bombs:0,helmet:0},S.gear||{}); if(S.wsel&&!ownsItem(S.wsel)) S.wsel=null;
 }
 function askPause(q,yes,fn){ confirmBox={q,yes,fn}; pauseSel=1; }
-function resetRun(){ enemies=[]; projs=[]; pickups=[]; hazards=[]; parts=[]; floaters=[]; toasts=[]; bossActive=null; warpFx=null; dlg=null; menu=null; whiskersFlee=null; coachRun=null; elderRun=null; banner=null; S=null; }
+function resetRun(){ setTimeout(syncItemButtons,0); enemies=[]; projs=[]; pickups=[]; hazards=[]; parts=[]; floaters=[]; toasts=[]; bossActive=null; warpFx=null; dlg=null; menu=null; whiskersFlee=null; coachRun=null; elderRun=null; banner=null; S=null; }
 function toTitle(){ save(); hasSave=!!loadSave(); resetRun(); mode='title'; titleStage='main'; titleSel=0; playTrack('town'); }
 function restartGame(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} memSave=null; hasSave=false; resetRun(); mode='title'; titleStage='diff'; titleSel=1; playTrack('town'); }
 function pauseItems(){
@@ -2736,7 +2937,7 @@ function pauseItems(){
       {l:'Companion: '+(S.pet?PETS[S.pet].name:'None'),c(d){ if(pets.length<2){ toast('No companions yet. Help villagers to make friends!'); return; } const i=pets.indexOf(S.pet); setPet(pets[(i+d+pets.length)%pets.length]); }},
       {l:'Difficulty: '+DIFF[S.diff].name,c(d){ S.diff=(S.diff+d+3)%3; }},
       {l:'Save code',a(){ openSaveCode(); }},
-      {l:'Controls',a(){ say([['Controls','Move: WASD / Arrows. Run: hold Shift.'],['Controls','Bite: J or Space. Bark: K. Dash: L or C (once Coach Corgi teaches you).'],['Controls','Talk / open chests: E or Enter. Walk into doors to go inside.'],['Controls','Fast travel: T (or click a blue flag on the map).'],['Controls','Eat treat: H. Quest log: Q. Map: M. Music: N. Pause: Esc or the pause button.'],['Controls','On touch screens: drag the left side to move and use the buttons on the right.']]); }},
+      {l:'Controls',a(){ say([['Controls','Move: WASD / Arrows. Run: hold Shift.'],['Controls','Bite: J or Space. Bark: K. Dash: L or C (once Coach Corgi teaches you).'],['Controls','Talk / open chests: E or Enter. Walk into doors to go inside.'],['Controls',"Use gear: F. Switch gear: G. Buy gear at Ironpaw's Armory on Market Street (east Barkton)."],['Controls','Fast travel: T (or click a blue flag on the map).'],['Controls','Eat treat: H. Quest log: Q. Map: M. Music: N. Pause: Esc or the pause button.'],['Controls','On touch screens: drag the left side to move and use the buttons on the right.']]); }},
       {l:'< Back',a(){ pausePage='main'; pauseSel=5; }},
     ];
   }
@@ -2869,6 +3070,8 @@ function renderNight(pz){
   if(pz===0){
     for(const st of structs){ const cx=(st.x+st.w/2)*16, by=(st.y+st.h)*16;
       if(st.k==='house'||st.k==='mansion') light(cx,by-10,st.k==='mansion'?60:44,.85);
+      else if(st.k==='lamp') light(cx,by-24,56,.95);
+      else if(st.k==='clocktower') light(cx,by-60,40,.7);
       else if(st.k==='shrine') light(cx,by-30,46,.9);
       else if(st.k==='lighthouse') light(cx,by-70,90,1);
       else if(st.k==='lavafall'||st.k==='cave'||st.k==='balloon'||st.k==='throne') light(cx,by-16,40,.8); }
@@ -2964,7 +3167,7 @@ function spreadQuestGivers(){
 // how townsfolk stroll: speed in pixels per second (Rex walks at 76), how many tiles from home they roam, how often they stop
 const WALK={speed:44,range:12,restChance:.25};
 // everyone strolls except characters tied to a spot or a cutscene; quest givers stay close to home so they're easy to find
-const STAY_PUT=['elder','coach','bonnie','puffy','fluff','whiskers'];
+const STAY_PUT=['elder','coach','bonnie','puffy','fluff','whiskers','ironpaw','tilly','figgy','barnaby'];
 function initWalkers(){
   for(const n of NPCS){ if(STAY_PUT.includes(n.id)) continue; const chatter=!!WALKERS[n.id]; n.walker=true; n.range=chatter?WALK.range:4; n.speed=chatter?WALK.speed:30; if(n.ci==null) n.ci=0; }
   for(const n of NPCS) if(n.walker){ n.px=n.hx=n.x*16+8; n.py=n.hy=n.y*16+12; n.vx=n.vy=0; n.wt=Math.random()*2; n.anim=0; n.face=0; n.home=reg[I(n.x,n.y)]; } }
@@ -3132,7 +3335,7 @@ function boot(){
 const fontReady=(document.fonts&&document.fonts.load)?Promise.race([document.fonts.load('8px "Press Start 2P"'),new Promise(r=>setTimeout(r,2000))]):Promise.resolve();
 fontReady.then(boot,boot);
 // handle used by automated tests
-window.__rex={get codeOpen(){return codeOpen;},openSaveCode,makeSaveCode,readSaveCode,NPCBY,SPREAD,LAB,get labRise(){return labRise;},startLabEvent,ROOMS,WARPS,BOSSES,setPet,get hazards(){return hazards;},get warpFx(){return warpFx;},room,get S(){return S;},P,QUESTS,NPCS,LOC,get mode(){return mode;},set mode(v){mode=v;},startGame,reach,ground,obj,reg,I,get chests(){return chests;},get enemies(){return enemies;},get boss(){return bossActive;},TUT,get tutT(){return tutT;}};
+window.__rex={makeEnemy,get projs(){return projs;},get codeOpen(){return codeOpen;},openSaveCode,makeSaveCode,readSaveCode,NPCBY,SPREAD,LAB,get labRise(){return labRise;},startLabEvent,ROOMS,WARPS,BOSSES,setPet,get hazards(){return hazards;},get warpFx(){return warpFx;},room,get S(){return S;},P,QUESTS,NPCS,LOC,get mode(){return mode;},set mode(v){mode=v;},startGame,reach,ground,obj,reg,I,get chests(){return chests;},get enemies(){return enemies;},get boss(){return bossActive;},TUT,get tutT(){return tutT;}};
 </script>
-</body>
-</html>
+
+</body></html>
