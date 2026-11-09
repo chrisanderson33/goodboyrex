@@ -222,6 +222,14 @@
       line-height: 1.5;
     }
 
+    .game-card .note {
+      margin-top: 12px;
+      padding-left: 10px;
+      border-left: 2px solid var(--accent);
+      font-style: italic;
+      color: var(--text);
+    }
+
     .game-card .play-badge {
       display: inline-flex;
       align-items: center;
@@ -327,6 +335,19 @@
         </div>
 
         <div class="games-grid">
+          <a href="games/fight-to-protect/" class="game-card">
+            <div class="game-card-thumb">
+              <img src="assets/fight-to-protect-title.jpg" alt="Fight to Protect title screen: a kid with a hoe, three monsters and Boss Bad on an island">
+            </div>
+            <div class="game-card-body">
+              <h3>Fight to Protect</h3>
+              <div class="meta">32-bit island adventure · Phaser · 2026</div>
+              <p>Boss Bad's monsters locked up everyone in Hometown. Free the island one region at a time, rescue the villagers, open the shops, and beat Boss Bad and the dragon. Needs a keyboard and mouse.</p>
+              <p class="note">Made with my friends in my garage. We mostly made it using pen and paper, then fed our ideas into Claude Code to make the current version of this game.</p>
+              <span class="play-badge">Play now</span>
+            </div>
+          </a>
+
           <a href="games/good-boy-rex/" class="game-card">
             <div class="game-card-thumb">
               <img src="assets/good-boy-rex-title.jpg" alt="Good Boy Rex: The Hamster Uprising title screen with Rex in Barkton Village">
